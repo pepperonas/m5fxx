@@ -5,6 +5,7 @@ edition = "2021"
 description = "Cross-platform M5Stack Cardputer desktop simulator in Rust using eframe/egui"
 
 [dependencies]
+m5fxx-factory = { path = "../m5fxx-factory" }
 m5fxx-core = { path = "../m5fxx-core" }
 m5fxx-app-demo = { path = "../m5fxx-app-demo" }
 eframe = "0.31"

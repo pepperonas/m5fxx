@@ -19,6 +19,11 @@ use std::path::PathBuf;
 
 pub struct CardputerSimulatorApp {
     hal: CardputerHal,
+    factory: m5fxx_factory::FactoryFirmware,
+    factory_mode: bool,
+    factory_inputs: m5fxx_factory::SimulationInputs,
+    panel: m5fxx_core::st7789::St7789,
+    factory_frame: m5fxx_core::DisplayBuffer,
     app: DemoApp,
     dev_state: DevPanelState,
     display_texture: Option<TextureHandle>,
@@ -44,10 +49,24 @@ impl CardputerSimulatorApp {
 
         let mut hal = CardputerHal::new(storage);
         hal.log("Simulator initialized");
+        hal.status.model = m5fxx_core::CardputerModel::CardputerAdv;
 
         let app = DemoApp::new();
 
+        let mut panel = m5fxx_core::st7789::St7789::default();
+        panel.command(0x11);
+        panel.command(0x21);
+        panel.command(0x29);
+        let factory_inputs = m5fxx_factory::SimulationInputs {
+            sd: u8::from(hal.storage.is_some()),
+            ..Default::default()
+        };
         Self {
+            factory: m5fxx_factory::FactoryFirmware::default(),
+            factory_mode: true,
+            factory_inputs,
+            panel,
+            factory_frame: Default::default(),
             hal,
             app,
             dev_state: DevPanelState::default(),
@@ -57,6 +76,65 @@ impl CardputerSimulatorApp {
             display_only_mode: false,
             show_dev_panel: true,
         }
+    }
+
+    fn factory_controls(&mut self, ui: &mut egui::Ui) {
+        ui.heading("ADV factory firmware");
+        ui.label("Original M5Stack V0.3 · simulated peripherals");
+        if ui.button("Restart factory firmware").clicked() {
+            self.factory.reset();
+            self.hal.input.reset_all();
+        }
+        ui.collapsing("Display controller", |ui| {
+            ui.add(egui::Slider::new(&mut self.panel.brightness, 0..=255).text("Backlight"));
+            let mut on = self.panel.display_on;
+            if ui.checkbox(&mut on, "Display enabled").changed() {
+                self.panel.command(if on { 0x29 } else { 0x28 });
+            }
+            let mut sleeping = self.panel.sleeping;
+            if ui.checkbox(&mut sleeping, "Sleep").changed() {
+                self.panel.command(if sleeping { 0x10 } else { 0x11 });
+            }
+            let mut inverted = self.panel.inverted;
+            if ui
+                .checkbox(&mut inverted, "Hardware inversion (normal: on)")
+                .changed()
+            {
+                self.panel.command(if inverted { 0x21 } else { 0x20 });
+            }
+        });
+        ui.collapsing("Simulated hardware", |ui| {
+            ui.add(egui::Slider::new(&mut self.factory_inputs.battery, 0..=100).text("Battery %"));
+            for (value, label) in [
+                (&mut self.factory_inputs.wifi, "Wi-Fi connected"),
+                (&mut self.factory_inputs.ble, "BLE connected"),
+                (&mut self.factory_inputs.usb, "USB connected"),
+                (&mut self.factory_inputs.sd, "SD card inserted"),
+                (&mut self.factory_inputs.cap, "LoRa/GPS cap attached"),
+            ] {
+                let mut enabled = *value != 0;
+                if ui.checkbox(&mut enabled, label).changed() {
+                    *value = u8::from(enabled);
+                }
+            }
+            for (axis, value) in self.factory_inputs.accel.iter_mut().enumerate() {
+                ui.add(
+                    egui::Slider::new(value, -2.0..=2.0)
+                        .text(format!("Acceleration {}", ["X", "Y", "Z"][axis])),
+                );
+            }
+            for (axis, value) in self.factory_inputs.gyro.iter_mut().enumerate() {
+                ui.add(
+                    egui::Slider::new(value, -180.0..=180.0)
+                        .text(format!("Gyroscope {}", ["X", "Y", "Z"][axis])),
+                );
+            }
+            ui.add(
+                egui::Slider::new(&mut self.factory_inputs.audio_amplitude, 0.0..=1.0)
+                    .text("Microphone test signal"),
+            );
+        });
+        ui.separator();
     }
 
     /// Processes keyboard events from egui
@@ -158,6 +236,11 @@ impl CardputerSimulatorApp {
                     for c in txt.chars() {
                         if c >= ' ' && c != '\x7F' {
                             if let Some(coord) = keyboard_mapping::char_to_matrix(c) {
+                                if self.factory_mode
+                                    && self.hal.input.is_key_pressed(coord.row, coord.col)
+                                {
+                                    continue;
+                                }
                                 // Direct press & release for typed characters (e.g. from German/QWERTZ layout)
                                 self.hal.input.press_key(coord.row, coord.col);
                                 self.hal.input.release_key(coord.row, coord.col);
@@ -203,6 +286,8 @@ impl CardputerSimulatorApp {
             if !self.dev_state.installed_firmwares.contains(&file_name) {
                 self.dev_state.installed_firmwares.push(file_name.clone());
             }
+            self.dev_state.boot_firmware_requested = Some(file_name.clone());
+            self.factory_mode = false;
             self.app.trigger_firmware_flash(file_name, file_size);
         }
     }
@@ -211,6 +296,16 @@ impl CardputerSimulatorApp {
     fn update_texture(&mut self, ctx: &Context) {
         if self.hal.display.is_dirty() || self.display_texture.is_none() {
             self.hal.display.to_rgba8888(&mut self.rgba_buffer);
+            let brightness = if self.factory_mode {
+                self.factory.brightness as u16 * self.panel.brightness as u16 / 255
+            } else {
+                255
+            };
+            for (index, channel) in self.rgba_buffer.iter_mut().enumerate() {
+                if index % 4 != 3 {
+                    *channel = (*channel as u16 * brightness / 255) as u8;
+                }
+            }
             let color_image = ColorImage::from_rgba_unmultiplied(
                 [DISPLAY_WIDTH, DISPLAY_HEIGHT],
                 &self.rgba_buffer,
@@ -247,7 +342,52 @@ impl eframe::App for CardputerSimulatorApp {
         // Advance simulation tick if not paused
         let dt = self.hal.update();
         if !self.dev_state.is_paused {
-            self.app.update(&mut self.hal, dt);
+            if self.factory_mode {
+                self.hal.status.model = m5fxx_core::CardputerModel::CardputerAdv;
+                for (coord, pressed) in self.hal.input.take_matrix_events() {
+                    self.factory.key(coord.row, coord.col, pressed);
+                }
+                self.hal.input.take_chars();
+                self.hal.input.take_keys();
+                self.factory.home(self.hal.input.btn_g0_pressed);
+                if let Some(storage) = &self.hal.storage {
+                    self.factory.sd_root(storage.root());
+                    self.factory_inputs.sd_bytes = std::fs::read_dir(storage.root())
+                        .map(|entries| {
+                            entries
+                                .flatten()
+                                .filter_map(|e| e.metadata().ok())
+                                .map(|m| m.len())
+                                .sum()
+                        })
+                        .unwrap_or(0);
+                }
+                self.factory.inputs(&self.factory_inputs);
+                self.factory.step(
+                    (dt * 1000.0).round().clamp(1.0, 100.0) as u32,
+                    &mut self.factory_frame,
+                );
+                self.panel.write_landscape(&self.factory_frame.pixels);
+                self.panel.present(&mut self.hal.display);
+            } else {
+                self.hal.input.take_matrix_events();
+                self.app.update(&mut self.hal, dt);
+
+                // If flashing just completed and the flashed image is the factory firmware, switch to factory mode!
+                if self.app.screen == m5fxx_app_demo::AppScreen::LoadedFirmware {
+                    if let Some(target) = &self.dev_state.boot_firmware_requested {
+                        let lower = target.to_lowercase();
+                        if lower.contains("factory")
+                            || lower.contains("cardputer-adv")
+                            || lower.contains("m5stack")
+                        {
+                            self.factory_mode = true;
+                            self.factory.reset();
+                            self.dev_state.boot_firmware_requested = None;
+                        }
+                    }
+                }
+            }
         }
 
         // Refresh GPU texture
@@ -263,6 +403,8 @@ impl eframe::App for CardputerSimulatorApp {
         egui::TopBottomPanel::top("top_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("m5fxx - M5Stack Cardputer Simulator");
+                ui.selectable_value(&mut self.factory_mode, true, "ADV Factory");
+                ui.selectable_value(&mut self.factory_mode, false, "Rust Demo");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui
                         .selectable_label(self.show_dev_panel, "🛠 Developer Panel")
@@ -287,13 +429,22 @@ impl eframe::App for CardputerSimulatorApp {
                 .default_width(320.0)
                 .min_width(260.0)
                 .show(ctx, |ui| {
-                    render_dev_panel(
-                        ui,
-                        &mut self.dev_state,
-                        &mut self.hal,
-                        &mut self.app,
-                        &mut self.display_only_mode,
-                    );
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        if self.factory_mode {
+                            self.factory_controls(ui);
+                        }
+                        render_dev_panel(
+                            ui,
+                            &mut self.dev_state,
+                            &mut self.hal,
+                            &mut self.app,
+                            &mut self.display_only_mode,
+                            self.factory_mode,
+                        );
+                        if std::mem::take(&mut self.dev_state.factory_reset_requested) {
+                            self.factory.reset();
+                        }
+                    });
                 });
         }
 

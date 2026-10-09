@@ -1,31 +1,8 @@
-//! Authentic vector rendering and layout metrics for the M5Stack Cardputer (Model K132).
-//!
-//! Physical Cardputer Dimensions & Reference:
-//! - 84.0 mm x 54.0 mm x 19.7 mm (56 tactile buttons, 1.14" IPS LCD, M5Stamp-S3 MCU module)
-//! - Display: 1.14" ST7789v2 IPS LCD (240x135 pixels, active area 24.9mm x 14.9mm)
-//! - Keyboard: 56 keys arranged in 4 rows x 14 columns
-//!
-//! Visual Details from Official Hardware:
-//! 1. Warm industrial light-gray moulded plastic enclosure (#C8CBD0 / #D2D5DC) with subtle bevels and screw recesses.
-//! 2. Left Upper Section:
-//!    - White screen-printed silkscreen badge with "[CARD COMPUTER]" and orange corner brackets
-//!    - Microphone label "Mic  DataG46  ClkG43" with 2 oval acoustic slots
-//! 3. Center Upper Section:
-//!    - Recessed glossy black acrylic bezel enclosing the 240x135 LCD screen
-//!    - Indicator dots on the left edge ("Aa", "fn", "ctrl", "opt", "alt")
-//!    - Embossed/printed "M5" logo on the right edge of the bezel
-//! 4. Right Upper Section:
-//!    - Authentic M5Stamp-S3 system-on-module with visible PCB surface (#1E232A)
-//!    - 2.4GHz PCB antenna trace in gold/copper
-//!    - Laser-marked metal shield "STAMP S3 / ESP32-S3FN8"
-//!    - Side pinouts with color-coded dot matrix (G1, G2, G41, G42, 5V, GND, 3V3, etc.)
-//!    - Tactile G0 user button with gold ring accent
-//!    - Side USB-C metallic receptacle visible on edge
-//! 5. Hardware Screws:
-//!    - Two dark metallic M2 hex/Torx screw recesses directly below display and stamp
-//! 6. Keyboard Deck:
-//!    - Clean recessed tray with 56 black rounded-pill keycaps
-//!    - Authentic white legends with orange arrow glyphs (▲ ▼ ◄ ►) and orange "ok ↵" accent
+//! Cardputer vector renderer with the display opening positioned using official ADV CAD.
+//! Device design space: 840x540 (10 units/mm).
+//! The CAD display opening is 25x15 mm. The visible 16:9 active rectangle is
+//! fitted inside it; precise active-panel dimensions remain unverified.
+//! Modifier/status bars are firmware pixels, not physical bezel indicators.
 
 use egui::{
     pos2, vec2, Color32, CornerRadius, FontFamily, FontId, Pos2, Rect, Stroke, StrokeKind, Ui,
@@ -37,16 +14,16 @@ pub const DESIGN_WIDTH: f32 = 840.0;
 pub const DESIGN_HEIGHT: f32 = 540.0;
 
 // Display bezel in design space
-pub const DISPLAY_BEZEL_X: f32 = 188.0;
-pub const DISPLAY_BEZEL_Y: f32 = 36.0;
-pub const DISPLAY_BEZEL_W: f32 = 340.0;
-pub const DISPLAY_BEZEL_H: f32 = 196.0;
+pub const DISPLAY_BEZEL_X: f32 = 199.5;
+pub const DISPLAY_BEZEL_Y: f32 = 22.0;
+pub const DISPLAY_BEZEL_W: f32 = 266.0;
+pub const DISPLAY_BEZEL_H: f32 = 166.0;
 
 // LCD active screen area (240x135 aspect ratio 16:9)
-pub const SCREEN_INNER_X: f32 = 226.0;
-pub const SCREEN_INNER_Y: f32 = 55.0;
-pub const SCREEN_INNER_W: f32 = 264.0;
-pub const SCREEN_INNER_H: f32 = 148.5;
+pub const SCREEN_INNER_X: f32 = 207.5;
+pub const SCREEN_INNER_Y: f32 = 34.6875;
+pub const SCREEN_INNER_W: f32 = 250.0;
+pub const SCREEN_INNER_H: f32 = 140.625;
 
 // Keyboard dimensions in design space
 pub const KB_START_X: f32 = 36.0;
@@ -290,30 +267,21 @@ pub fn render_cardputer_device(
     // =========================================================================
     // 5. CENTER UPPER SECTION: Black Display Bezel & 240x135 IPS Screen
     // =========================================================================
-    let bezel_rect_design = Rect::from_min_size(
-        pos2(DISPLAY_BEZEL_X, DISPLAY_BEZEL_Y),
-        vec2(DISPLAY_BEZEL_W, DISPLAY_BEZEL_H),
-    );
-    let bezel_rect_screen = tf.to_screen_rect(bezel_rect_design);
-    let bezel_rad = radius(12.0);
-
-    // Recessed dark bezel shadow
+    // Keep the dark bezel local to the display opening. The surrounding CAD
+    // top face also contains casing geometry and is not black display glass.
     painter.rect_filled(
-        tf.to_screen_rect(bezel_rect_design.expand(2.0)),
-        radius(14.0),
-        Color32::from_rgb(0xA8, 0xAC, 0xB5),
+        tf.to_screen_rect(Rect::from_min_size(
+            pos2(DISPLAY_BEZEL_X, DISPLAY_BEZEL_Y),
+            vec2(DISPLAY_BEZEL_W, DISPLAY_BEZEL_H),
+        )),
+        radius(8.0),
+        Color32::from_rgb(20, 21, 24),
     );
-    // Glossy black acrylic bezel
+    // Dark unlit margin between the 25x15 mm opening and the LCD active pixels.
     painter.rect_filled(
-        bezel_rect_screen,
-        bezel_rad,
-        Color32::from_rgb(0x14, 0x15, 0x18),
-    );
-    painter.rect_stroke(
-        bezel_rect_screen,
-        bezel_rad,
-        Stroke::new(1.5 * tf.scale, Color32::from_rgb(0x28, 0x2A, 0x30)),
-        StrokeKind::Inside,
+        tf.to_screen_rect(Rect::from_min_size(pos2(207.5, 30.0), vec2(250.0, 150.0))),
+        radius(5.0),
+        Color32::from_rgb(8, 9, 10),
     );
 
     // Active IPS Screen viewport (ST7789 240x135)

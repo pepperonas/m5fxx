@@ -19,6 +19,7 @@ pub enum AppScreen {
     SdStorage,
     SysInfo,
     FirmwareFlashing,
+    LoadedFirmware,
 }
 
 pub struct DemoApp {
@@ -37,6 +38,10 @@ pub struct DemoApp {
     pub flash_progress: f32,
     pub flash_status: String,
     pub flash_timer: f32,
+    // Loaded firmware runtime state
+    pub fw_uptime: f32,
+    pub fw_log_lines: Vec<String>,
+    pub fw_last_key: Option<String>,
 }
 
 pub struct BouncingBall {
@@ -139,6 +144,9 @@ impl DemoApp {
             flash_progress: 0.0,
             flash_status: String::new(),
             flash_timer: 0.0,
+            fw_uptime: 0.0,
+            fw_log_lines: Vec::new(),
+            fw_last_key: None,
         }
     }
 
@@ -150,6 +158,9 @@ impl DemoApp {
         self.flash_progress = 0.0;
         self.flash_timer = 0.0;
         self.flash_status = "Verifying binary format...".to_string();
+        self.fw_uptime = 0.0;
+        self.fw_log_lines.clear();
+        self.fw_last_key = None;
     }
 
     /// Reset app state
@@ -346,10 +357,20 @@ impl DemoApp {
                     self.flash_progress = 1.0;
                     self.flash_status = "Flash complete! Rebooting...".to_string();
                 } else {
-                    // Reboot back to menu
-                    self.screen = AppScreen::Menu;
+                    // Reboot directly into the flashed firmware runtime screen!
+                    self.screen = AppScreen::LoadedFirmware;
+                    self.fw_uptime = 0.0;
+                    self.fw_log_lines.clear();
+                    self.fw_log_lines
+                        .push("[SYS] CPU0: ESP32-S3 @ 240MHz".to_string());
+                    self.fw_log_lines
+                        .push("[SYS] Flash 8MB Quad SPI detected".to_string());
+                    self.fw_log_lines
+                        .push(format!("[BOOT] Loaded: {}", self.flash_file_name));
+                    self.fw_log_lines
+                        .push("[APP] Main loop started (ready)".to_string());
                     hal.log(format!(
-                        "Firmware '{}' installed & rebooted",
+                        "Firmware '{}' booted successfully",
                         self.flash_file_name
                     ));
                     return;
@@ -361,6 +382,33 @@ impl DemoApp {
                         self.screen = AppScreen::Menu;
                         hal.log("Flashing cancelled by user");
                         return;
+                    }
+                }
+            }
+            AppScreen::LoadedFirmware => {
+                self.fw_uptime += dt;
+
+                // Handle keys in running firmware
+                for key in &keys {
+                    if *key == CardputerKey::Esc {
+                        self.screen = AppScreen::Menu;
+                        hal.log("Exited loaded firmware to Menu");
+                        return;
+                    }
+                    self.fw_last_key = Some(format!("{:?}", key));
+                    let log_entry = format!("[KEY] Pressed: {:?}", key);
+                    self.fw_log_lines.push(log_entry);
+                    if self.fw_log_lines.len() > 6 {
+                        self.fw_log_lines.remove(0);
+                    }
+                }
+
+                for ch in &chars {
+                    self.fw_last_key = Some(format!("'{}'", ch));
+                    let log_entry = format!("[INP] Char: '{}'", ch);
+                    self.fw_log_lines.push(log_entry);
+                    if self.fw_log_lines.len() > 6 {
+                        self.fw_log_lines.remove(0);
                     }
                 }
             }
@@ -380,6 +428,7 @@ impl DemoApp {
             AppScreen::SdStorage => self.render_sd(hal),
             AppScreen::SysInfo => self.render_sysinfo(hal),
             AppScreen::FirmwareFlashing => self.render_flashing(hal),
+            AppScreen::LoadedFirmware => self.render_loaded_firmware(hal),
         }
     }
 
@@ -741,6 +790,102 @@ impl DemoApp {
             1,
         );
     }
+
+    fn render_loaded_firmware(&self, hal: &mut CardputerHal) {
+        hal.display.clear(Color565::BLACK);
+
+        // Header with active status and firmware title
+        let header_title = format!("▶ FW: {}", self.flash_file_name);
+        let header_cropped = if header_title.len() > 24 {
+            format!("{}...", &header_title[..21])
+        } else {
+            header_title
+        };
+        Self::draw_header(hal, &header_cropped);
+
+        // Top info bar: status pill & active runtime metrics
+        hal.display
+            .fill_rect(4, 15, DISPLAY_WIDTH as i32 - 8, 16, Color565::NAVY);
+        hal.display
+            .draw_rect(4, 15, DISPLAY_WIDTH as i32 - 8, 16, Color565::DARKCYAN);
+
+        let m5_orange = Color565::from_rgb888(0xFA, 0x6A, 0x00);
+        hal.display
+            .draw_string(8, 19, "RUNNING", Color565::GREENYELLOW, None, 1);
+
+        let size_str = if self.flash_file_size > 0 {
+            format!("{:.1} KB", self.flash_file_size as f32 / 1024.0)
+        } else {
+            "ROM Image".to_string()
+        };
+        hal.display
+            .draw_string(60, 19, &size_str, Color565::LIGHTGREY, None, 1);
+
+        let fw_run_time = format!("Run: {:.1}s", self.fw_uptime);
+        hal.display.draw_string(
+            DISPLAY_WIDTH as i32 - (fw_run_time.len() as i32 * 6) - 10,
+            19,
+            &fw_run_time,
+            m5_orange,
+            None,
+            1,
+        );
+
+        // Virtual UART / Console output terminal box
+        hal.display.draw_rect(
+            4,
+            34,
+            DISPLAY_WIDTH as i32 - 8,
+            DISPLAY_HEIGHT as i32 - 48,
+            Color565::DARKGREY,
+        );
+        hal.display.fill_rect(
+            5,
+            35,
+            DISPLAY_WIDTH as i32 - 10,
+            DISPLAY_HEIGHT as i32 - 50,
+            Color565::from_rgb888(12, 16, 20),
+        );
+
+        // Title of console
+        hal.display
+            .draw_string(8, 37, "UART0 / Serial Log Output:", Color565::CYAN, None, 1);
+
+        // Render log lines
+        let mut y = 49;
+        for line in &self.fw_log_lines {
+            let color = if line.starts_with("[SYS]") {
+                Color565::DARKGREY
+            } else if line.starts_with("[BOOT]") {
+                Color565::YELLOW
+            } else if line.starts_with("[APP]") {
+                Color565::GREEN
+            } else if line.starts_with("[KEY]") || line.starts_with("[INP]") {
+                m5_orange
+            } else {
+                Color565::WHITE
+            };
+            hal.display.draw_string(8, y, line, color, None, 1);
+            y += 11;
+        }
+
+        // Live blinking cursor at bottom of console
+        let blink = (self.anim_tick * 3.0) as i32 % 2 == 0;
+        if blink {
+            hal.display.draw_string(8, y, "_", Color565::GREEN, None, 1);
+        }
+
+        // Footer instructions
+        hal.display
+            .draw_line(0, 123, DISPLAY_WIDTH as i32, 123, Color565::DARKGREY);
+        let key_hint = if let Some(last) = &self.fw_last_key {
+            format!("Last Key: {}  [Esc]=Exit", last)
+        } else {
+            "Type keys to interact  [Esc]=Exit".to_string()
+        };
+        hal.display
+            .draw_string(4, 125, &key_hint, Color565::LIGHTGREY, None, 1);
+    }
 }
 
 #[cfg(test)]
@@ -777,6 +922,31 @@ mod tests {
         app.update(&mut hal, 0.1);
         hal.input.release_key(0, 0);
         hal.input.release_key(2, 0);
+        assert_eq!(app.screen, AppScreen::Menu);
+    }
+
+    #[test]
+    fn test_firmware_flashing_and_boot() {
+        let mut app = DemoApp::new();
+        let mut hal = CardputerHal::default();
+
+        app.trigger_firmware_flash("custom_fw.bin".to_string(), 102400);
+        assert_eq!(app.screen, AppScreen::FirmwareFlashing);
+
+        // Advance flashing timer until completion (> 4.2s)
+        app.update(&mut hal, 5.0);
+        assert_eq!(app.screen, AppScreen::LoadedFirmware);
+        assert_eq!(app.flash_file_name, "custom_fw.bin");
+        assert!(!app.fw_log_lines.is_empty());
+
+        // Press a key in the loaded firmware
+        hal.input.press_cardputer_key(CardputerKey::Enter);
+        app.update(&mut hal, 0.1);
+        assert!(app.fw_last_key.is_some());
+
+        // Press Esc to exit loaded firmware
+        hal.input.press_cardputer_key(CardputerKey::Esc);
+        app.update(&mut hal, 0.1);
         assert_eq!(app.screen, AppScreen::Menu);
     }
 }

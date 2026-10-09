@@ -25,7 +25,7 @@
 - 🕹️ **Authentische M5Stack Cardputer Hardware-Nachbildung:**
   - Originalgetreues Industrie-Gehäuse im warmen Cardputer-Hellgrau (`#D1D4DC`) mit Schattenwürfen, Kantenfasen und präzisen Port-Aussparungen (USB-C Buchse rechts, MicroSD-Schacht links).
   - **Oberer linker Bereich:** Weißes `[ CARD COMPUTER ]` Badge mit orangefarbenen Eckwinkeln, PDM-Mikrofonbeschriftung (`Mic Data: G46 Clk: G43`), 2 ovalen Akustikschlitzen und Lautsprecher-Öffnungen.
-  - **Mitte (Display):** Hochglänzender schwarzer Acryl-Bezel mit seitlichen LED-Statusindikatoren (`Aa`, `fn`, `ctrl`, `opt`, `alt`), eingeprägtem M5-Logo und zwei M2-Sechskantschrauben.
+  - **Mitte (Display):** Schmaler schwarzer Displayrahmen um die CAD-basierte Öffnung. Modifier- und Statusanzeigen gehören zu den Firmware-Pixeln im LCD.
   - **Oberer rechter Bereich:** Detailreiches M5Stamp-S3 Modul mit schwarzer Leiterplatte, 2.4GHz Mäander-Goldantenne, laser-beschriftetem RF-Shield (`STAMP S3 / ESP32-S3FN8`), farbkodierten GPIO-Dots und taktilem **BtnG0**-Taster.
   - Zentrierte, stufenlos skalierbare Geräteansicht mit optimierter HiDPI- und Retina-Unterstützung.
 - 📺 **ST7789V2 IPS LCD Emulation:**
@@ -35,7 +35,7 @@
 - ⌨️ **Vollständige 56-Tasten-Tastatur & Modifier-Unterstützung:**
   - Exakte 4×14 Tastenmatrix mit weißen Beschriftungen, orangefarbenen Pfeilsymbolen (`▲`, `▼`, `◄`, `►`) und orangefarbenem `ok ↵` auf der Enter-Taste.
   - **Funktionierende Modifier (`Shift`, `Ctrl`, `Alt`, `Fn`):**
-    - Physische PC-Modifier (`Shift`, `Ctrl`, `Alt`) werden in Echtzeit auf die Cardputer-Matrix übertragen (`Aa` auf (2, 1), `Ctrl` auf (3, 0), `Alt` auf (3, 2)) und aktivieren die jeweiligen Status-LEDs am Display sowie die Großschreibung.
+    - Physische PC-Modifier (`Shift`, `Ctrl`, `Alt`) werden in Echtzeit auf die Cardputer-Matrix übertragen (`Aa` auf (2, 1), `Ctrl` auf (3, 0), `Alt` auf (3, 2)) und steuern die Modifier-Anzeigen der Firmware sowie die Großschreibung.
     - `Fn`-Taste kann über `F1` (oder Mausklick auf die `Fn`-Taste) aktiviert werden, um die Funktions- und F-Tasten-Ebenen (`F1`..`F12`, `Esc` etc.) zu schalten.
   - **Direkte Host-Navigation:** Pfeiltasten (`ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`), `Enter`, `Esc`, `Tab` und `Backspace` steuern Firmware und Menüs unmittelbar auf der PC-Tastatur (kein umständliches `Fn`-Drücken für Pfeiltasten nötig).
   - Klickbare Tastenkappen mit optischem Leuchteffekt (M5-Orange) bei Druck.
@@ -44,10 +44,12 @@
 - 💾 **MicroSD-Speicherkarte mit Sandbox:**
   - Abbildung auf ein konfigurierbares Host-Verzeichnis.
   - Zuverlässiger Schutz vor Directory-Traversal-Angriffen (`../` oder Ausbrüche blockiert).
-- ⚡ **Drag & Drop Firmware Installation:**
+- ⚡ **Drag & Drop Firmware Installation & Boot:**
   - Ziehe beliebige Firmware-Dateien (`.bin`, `.hex`, `.elf`) direkt per Drag-and-Drop auf das Simulatorfenster.
   - Automatische visuelle Drop-Overlay-Anzeige (`⚡ Drop to Flash Firmware`).
-  - Animierte ESP32-S3 Flash-Simulation im Display mit Fortschrittsbalken, Größenprüfung, Prüfsummen-Verifikation und automatischem Soft-Reboot ins System.
+  - Animierte ESP32-S3 Flash-Simulation im Display mit Fortschrittsbalken, Größenprüfung und Prüfsummen-Verifikation.
+  - **Automatischer Boot nach dem Flashen:** Startet die geflashte Firmware direkt in einer dedizierten Runtime-Ansicht mit Firmware-Titel, Betriebszeit, seriellem Log-/UART-Output (`[SYS]`, `[BOOT]`, `[APP]`) und interaktiver Tastenverarbeitung (oder bootet bei Werks-Images nahtlos in die native ADV-Firmware).
+  - Zuletzt geflashte Firmwares werden in der Liste des Developer Panels gespeichert und können mit `▶ <name>` jederzeit erneut gebootet werden.
   - Alternativ auch manuelle Dateiauswahl über den Button im Developer Panel.
 - 🛠️ **Integriertes Entwickler-Panel:**
   - Simulation pausieren & fortsetzen.
@@ -62,7 +64,7 @@
 
 | Hardware-Komponente | Status | Implementierungsdetails |
 | :--- | :---: | :--- |
-| **ST7789V2 Display (240×135)** | ✅ **Vollständig** | RGB565 Framebuffer, Primitiven, Font, GPU Nearest-Neighbor |
+| **ST7789V2 Display (240×135)** | ✅ **Simuliert** | RGB565, Controller-RAM und ausgewählte ST7789-Befehle, GPU Nearest-Neighbor |
 | **56-Tasten-Tastatur** | ✅ **Vollständig** | 4×14 Matrix, Host-Keyboard-Mapping, Klickflächen, Modifier |
 | **G0-Taster (BtnG0)** | ✅ **Vollständig** | Klickbar, Download/Action-Button der Firmware |
 | **MicroSD-Slot** | ✅ **Vollständig** | Lokaler Sandboxed Ordner, Traversal-Protection |
@@ -96,7 +98,7 @@ cargo run --release -p m5fxx-desktop
 
 Die Standardansicht zeigt das vollständige Gerät mit dem laufenden Firmware-Display. Klicke auf eine Tastenkappe oder verwende die Host-Tastatur zur Eingabe; der kleine **G0**-Taster unter der Gerätebeschriftung ist ebenfalls bedienbar.
 
-Über **Zoomed Display Only** in der oberen Leiste wechselst du zur vergrößerten Displayansicht mit ganzzahliger Pixelskalierung. **Developer Panel** blendet die seitlichen Entwicklungswerkzeuge ein oder aus. Dort lässt sich zwischen Original Cardputer und Cardputer ADV wechseln; die Gerätebeschriftung folgt dem ausgewählten Modell, während beide dieselbe ADV-inspirierte Gehäuseansicht verwenden.
+Über **Zoomed Display Only** in der oberen Leiste wechselst du zur vergrößerten Displayansicht mit ganzzahliger Pixelskalierung. **Developer Panel** blendet die seitlichen Entwicklungswerkzeuge ein oder aus. Das Profil **ADV Factory** startet den nativen Port der originalen ADV-Werksfirmware. **Rust Demo** startet die bisherige Beispielanwendung; dort lässt sich zwischen Original Cardputer und Cardputer ADV wechseln; die Gerätebeschriftung folgt dem ausgewählten Modell, während beide dieselbe ADV-inspirierte Gehäuseansicht verwenden.
 
 ---
 
@@ -109,6 +111,7 @@ m5fxx/
 ├── assets/                  # Hero Banner & Ressourcen
 ├── crates/
 │   ├── m5fxx-core/          # Hardware Abstraction Layer, RGB565, Input & SD Sandbox
+│   ├── m5fxx-factory/       # Nativer C/C++-Port der ADV-Werksfirmware
 │   ├── m5fxx-app-demo/      # Hardware-agnostische Beispielanwendung (Firmware)
 │   └── m5fxx-desktop/       # eframe/egui GUI Desktop-Simulator
 ├── include/
@@ -116,6 +119,14 @@ m5fxx/
 ├── Cargo.toml               # Workspace Konfiguration
 └── README.md
 ```
+
+### Originale ADV-Werksfirmware
+
+`m5fxx-factory` kompiliert die originalen C/C++-Anwendungen und M5GFX nativ. Dazu wird ein C/C++17-Compiler benötigt (macOS: Xcode Command Line Tools). Die Firmware läuft mit virtueller Zeit und simulierten Peripheriegeräten; ESP32-Binärdateien werden nicht ausgeführt. Drag-and-Drop bleibt eine Flash-Animation im Rust-Demo-Profil.
+
+Das Developer Panel bietet Neustart, Display-Zustände, Helligkeit und simulierte Eingaben. Die Zoomansicht verwendet ganzzahlige **Monitorpixel**, auch auf HiDPI-Displays. Die vollständige Geräteansicht skaliert dagegen zusammen mit dem Gehäuse.
+
+Details, Quellen und Grenzen stehen in [Display-Fidelity](docs/display-fidelity.md). Abhängigkeiten sind in [vendor/versions.json](vendor/versions.json) festgeschrieben.
 
 ### Integration eigener Firmware
 
@@ -167,4 +178,4 @@ cargo fmt --all -- --check
 
 ## Lizenz
 
-Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).
+Die eingebundenen Drittanbieterquellen behalten ihre jeweiligen Lizenzen und Copyright-Hinweise; siehe [vendor/README.md](vendor/README.md).

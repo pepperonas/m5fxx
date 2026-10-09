@@ -9,22 +9,26 @@ use std::path::PathBuf;
 
 pub struct DevPanelState {
     pub is_paused: bool,
+    pub factory_reset_requested: bool,
     pub sd_folder_path: String,
     pub fps: f32,
     pub frame_counter: u32,
     pub last_fps_time: std::time::Instant,
     pub installed_firmwares: Vec<String>,
+    pub boot_firmware_requested: Option<String>,
 }
 
 impl Default for DevPanelState {
     fn default() -> Self {
         Self {
             is_paused: false,
+            factory_reset_requested: false,
             sd_folder_path: String::from("./virtual_sd"),
             fps: 60.0,
             frame_counter: 0,
             last_fps_time: std::time::Instant::now(),
             installed_firmwares: Vec::new(),
+            boot_firmware_requested: None,
         }
     }
 }
@@ -47,6 +51,7 @@ pub fn render_dev_panel(
     hal: &mut CardputerHal,
     app: &mut DemoApp,
     display_only_mode: &mut bool,
+    factory_active: bool,
 ) {
     ui.heading("Cardputer Simulator Controls");
     ui.separator();
@@ -68,7 +73,11 @@ pub fn render_dev_panel(
         }
 
         if ui.button("🔄 Reset App").clicked() {
-            app.reset();
+            if factory_active {
+                dev_state.factory_reset_requested = true;
+            } else {
+                app.reset();
+            }
             hal.reset_uptime();
             hal.input.reset_all();
             hal.log("App and HAL reset");
@@ -90,28 +99,30 @@ pub fn render_dev_panel(
     CollapsingHeader::new("Hardware Profile & Features")
         .default_open(true)
         .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.label("Cardputer Model:");
-                if ui
-                    .selectable_label(
-                        hal.status.model == CardputerModel::CardputerOriginal,
-                        "Original (GPIO)",
-                    )
-                    .clicked()
-                {
-                    hal.status.model = CardputerModel::CardputerOriginal;
-                    hal.log("Switched to Cardputer Original");
-                }
-                if ui
-                    .selectable_label(
-                        hal.status.model == CardputerModel::CardputerAdv,
-                        "ADV (TCA8418)",
-                    )
-                    .clicked()
-                {
-                    hal.status.model = CardputerModel::CardputerAdv;
-                    hal.log("Switched to Cardputer ADV");
-                }
+            ui.add_enabled_ui(!factory_active, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Cardputer Model:");
+                    if ui
+                        .selectable_label(
+                            hal.status.model == CardputerModel::CardputerOriginal,
+                            "Original (GPIO)",
+                        )
+                        .clicked()
+                    {
+                        hal.status.model = CardputerModel::CardputerOriginal;
+                        hal.log("Switched to Cardputer Original");
+                    }
+                    if ui
+                        .selectable_label(
+                            hal.status.model == CardputerModel::CardputerAdv,
+                            "ADV (TCA8418)",
+                        )
+                        .clicked()
+                    {
+                        hal.status.model = CardputerModel::CardputerAdv;
+                        hal.log("Switched to Cardputer ADV");
+                    }
+                });
             });
 
             ui.label(
@@ -126,7 +137,7 @@ pub fn render_dev_panel(
             ui.add_space(4.0);
             ui.label("Hardware Implementation Status:");
             ui.label(
-                RichText::new("✔ ST7789V2 240x135 IPS Display (Full Emulation)")
+                RichText::new("✔ ST7789V2 240x135 · controller command subset")
                     .color(Color32::GREEN),
             );
             ui.label(
@@ -140,12 +151,28 @@ pub fn render_dev_panel(
                 RichText::new("✔ Battery & Power Circuitry (Simulated)").color(Color32::GREEN),
             );
             ui.label(
-                RichText::new("⚠ NS4168 1W Speaker (Audio stub ready)").color(Color32::YELLOW),
+                RichText::new(if factory_active {
+                    "✔ ADV ES8311 / NS4150B (Simulated timing)"
+                } else {
+                    "⚠ NS4168 1W Speaker (Audio stub ready)"
+                })
+                .color(Color32::YELLOW),
             );
-            ui.label(RichText::new("⚠ SPM1423 PDM Microphone (Stub ready)").color(Color32::YELLOW));
             ui.label(
-                RichText::new("✖ Wi-Fi / ESP-NOW / Bluetooth (Not implemented)")
-                    .color(Color32::LIGHT_RED),
+                RichText::new(if factory_active {
+                    "✔ ADV microphone (Synthetic samples)"
+                } else {
+                    "⚠ SPM1423 PDM Microphone (Stub ready)"
+                })
+                .color(Color32::YELLOW),
+            );
+            ui.label(
+                RichText::new(if factory_active {
+                    "✔ Wi-Fi / ESP-NOW / BLE (Simulated fixtures)"
+                } else {
+                    "✖ Wi-Fi / ESP-NOW / Bluetooth (Not implemented)"
+                })
+                .color(Color32::LIGHT_RED),
             );
             ui.label(
                 RichText::new("✖ Grove / External GPIO Header (Not implemented)")
@@ -214,7 +241,7 @@ pub fn render_dev_panel(
     CollapsingHeader::new("Firmware Flasher & Drag-and-Drop")
         .default_open(true)
         .show(ui, |ui| {
-            ui.label("Drop any .bin / .hex firmware file anywhere onto the simulator window to flash it.");
+            ui.label("Drop .bin / .hex firmware files or select below to flash and boot into the runtime.");
             ui.add_space(4.0);
 
             if ui.button("📂 Select Firmware File (.bin)...").clicked() {
@@ -231,6 +258,7 @@ pub fn render_dev_panel(
                     if !dev_state.installed_firmwares.contains(&name) {
                         dev_state.installed_firmwares.push(name.clone());
                     }
+                    dev_state.boot_firmware_requested = Some(name.clone());
                     app.trigger_firmware_flash(name, size);
                 }
             }
@@ -248,6 +276,7 @@ pub fn render_dev_panel(
                 }
                 if let Some(target) = flash_target {
                     hal.log(format!("Booting firmware: {}", target));
+                    dev_state.boot_firmware_requested = Some(target.clone());
                     app.trigger_firmware_flash(target, 0);
                 }
             }

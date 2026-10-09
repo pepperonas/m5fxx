@@ -2,4 +2,4 @@
 
 pub mod app;
 
-pub use app::DemoApp;
+pub use app::{AppScreen, DemoApp};
