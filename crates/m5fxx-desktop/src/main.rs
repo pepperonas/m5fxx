@@ -86,23 +86,35 @@ impl CardputerSimulatorApp {
                     repeat,
                     ..
                 } => {
+                    let special_override = keyboard_mapping::host_key_to_special(key);
                     if let Some(coord) = keyboard_mapping::host_key_to_matrix(key) {
                         if pressed {
                             if !repeat {
-                                self.hal.input.press_key(coord.row, coord.col);
+                                self.hal.input.press_key_override(
+                                    coord.row,
+                                    coord.col,
+                                    special_override,
+                                );
                             }
                         } else {
                             self.hal.input.release_key(coord.row, coord.col);
                         }
+                    } else if pressed && !repeat {
+                        if let Some(spec) = special_override {
+                            self.hal.input.press_cardputer_key(spec);
+                        }
                     }
                 }
                 Event::Text(txt) => {
-                    // Send unicode text input characters if they haven't been captured as raw keys
+                    // Send unicode text input characters if they are printable and not control characters
+                    // like '\n', '\r', '\t', '\x08' which are already handled via Key::Enter, Tab, Backspace.
                     for c in txt.chars() {
-                        if let Some(coord) = keyboard_mapping::char_to_matrix(c) {
-                            // Instant press and release for typed characters from IME or international layout
-                            self.hal.input.press_key(coord.row, coord.col);
-                            self.hal.input.release_key(coord.row, coord.col);
+                        if c >= ' ' && c != '\x7F' {
+                            if let Some(coord) = keyboard_mapping::char_to_matrix(c) {
+                                // Direct press & release for typed characters (e.g. from German/QWERTZ layout)
+                                self.hal.input.press_key(coord.row, coord.col);
+                                self.hal.input.release_key(coord.row, coord.col);
+                            }
                         }
                     }
                 }

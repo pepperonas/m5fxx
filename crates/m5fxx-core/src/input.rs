@@ -462,7 +462,8 @@ impl CardputerInputState {
         self.changed = true;
     }
 
-    pub fn press_key(&mut self, row: u8, col: u8) {
+    /// Press a key using its matrix coordinates and optionally override the emitted key (e.g. for direct arrow navigation)
+    pub fn press_key_override(&mut self, row: u8, col: u8, override_key: Option<CardputerKey>) {
         if (row as usize) >= ROWS || (col as usize) >= COLS {
             return;
         }
@@ -471,6 +472,18 @@ impl CardputerInputState {
             return; // Already pressed
         }
         self.changed = true;
+
+        if let Some(key) = override_key {
+            self.recent_keys.push(key);
+            match key {
+                CardputerKey::Enter => self.recent_chars.push('\n'),
+                CardputerKey::Backspace | CardputerKey::Delete => self.recent_chars.push('\x08'),
+                CardputerKey::Tab => self.recent_chars.push('\t'),
+                CardputerKey::Space => self.recent_chars.push(' '),
+                _ => {}
+            }
+            return;
+        }
 
         // Check modifiers
         match (row, col) {
@@ -549,6 +562,25 @@ impl CardputerInputState {
             self.recent_keys.push(CardputerKey::Char(ch));
             self.recent_chars.push(ch);
         }
+    }
+
+    /// Press a key using standard matrix behavior
+    pub fn press_key(&mut self, row: u8, col: u8) {
+        self.press_key_override(row, col, None);
+    }
+
+    /// Directly trigger a CardputerKey (e.g. for host navigation shortcuts or UI buttons)
+    pub fn press_cardputer_key(&mut self, key: CardputerKey) {
+        self.recent_keys.push(key);
+        match key {
+            CardputerKey::Enter => self.recent_chars.push('\n'),
+            CardputerKey::Backspace | CardputerKey::Delete => self.recent_chars.push('\x08'),
+            CardputerKey::Tab => self.recent_chars.push('\t'),
+            CardputerKey::Space => self.recent_chars.push(' '),
+            CardputerKey::Char(c) => self.recent_chars.push(c),
+            _ => {}
+        }
+        self.changed = true;
     }
 
     pub fn release_key(&mut self, row: u8, col: u8) {

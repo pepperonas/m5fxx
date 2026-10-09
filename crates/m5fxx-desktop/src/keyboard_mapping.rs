@@ -79,6 +79,26 @@ pub fn host_key_to_matrix(key: Key) -> Option<KeyCoord> {
     }
 }
 
+/// Returns a specific `CardputerKey` override for navigation / control keys
+/// so host arrow keys, Enter, Esc, etc. produce the correct event directly
+/// without needing Fn to be pressed.
+pub fn host_key_to_special(key: Key) -> Option<m5fxx_core::input::CardputerKey> {
+    use m5fxx_core::input::CardputerKey;
+    match key {
+        Key::ArrowUp => Some(CardputerKey::Up),
+        Key::ArrowDown => Some(CardputerKey::Down),
+        Key::ArrowLeft => Some(CardputerKey::Left),
+        Key::ArrowRight => Some(CardputerKey::Right),
+        Key::Escape => Some(CardputerKey::Esc),
+        Key::Enter => Some(CardputerKey::Enter),
+        Key::Backspace => Some(CardputerKey::Backspace),
+        Key::Delete => Some(CardputerKey::Delete),
+        Key::Tab => Some(CardputerKey::Tab),
+        Key::Space => Some(CardputerKey::Space),
+        _ => None,
+    }
+}
+
 /// Maps typed Unicode characters from German or international keyboards into appropriate
 /// Cardputer character matrix coordinates if needed.
 pub fn char_to_matrix(c: char) -> Option<KeyCoord> {
