@@ -253,7 +253,9 @@ impl eframe::App for CardputerSimulatorApp {
                 );
             } else {
                 // Render full realistic M5Stack Cardputer hardware device
-                let tf = DeviceViewTransform::new(available_rect);
+                ui.painter()
+                    .rect_filled(available_rect, 0.0, Color32::from_rgb(42, 47, 49));
+                let tf = DeviceViewTransform::new(available_rect.shrink(32.0));
                 render_cardputer_device(
                     ui,
                     &tf,

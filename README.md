@@ -22,17 +22,19 @@
 
 ## 1. Features & Highlights
 
-- 🕹️ **Maßstabsgetreues Gehäuse:**
-  - Realistische Vektordarstellung basierend auf den offiziellen M5Stack-Spezifikationen (84.0 × 54.0 × 19.7 mm).
-  - Skalierbar ohne Unschärfe, vollständige Retina- und HiDPI-Unterstützung.
-  - Detailreich mit perforiertem Lautsprechergrille, Schrauben, M5Stack-Branding und interaktivem **BtnG0**-Taster.
+- 🕹️ **Cardputer-Ansicht im Stil des ADV:**
+  - Skalierbare Vektordarstellung mit heller Frontplatte, grauer Gehäusekante und dunklem Sockel.
+  - Display links oben, farbige Moduldetails rechts sowie Schrauben, M5Stack-Beschriftung und interaktiver **BtnG0**-Taster.
+  - Kleine schwarze Tastenkappen mit Schatten, Lichtkante und orangefarbenen bzw. grünen Akzenten.
+  - Zentrierte Geräteansicht mit Abstand zum Fensterrand auf dunklem Hintergrund; für Retina und HiDPI skalierbar.
+  - Die Darstellung ist an eine Cardputer-ADV-Produktfotografie angelehnt; die Moduldetails sind dekorativ und simulieren keine GPIO-Funktion.
 - 📺 **ST7789V2 IPS LCD Emulation:**
   - Echte Hardware-Auflösung von 240 × 135 Pixeln mit RGB565-Farbraum.
   - **Nearest-Neighbor GPU-Texturierung:** Absolut scharfe Pixel-Optik ohne verwaschene Filter.
   - **Zoomed Display Only Modus:** Großansicht des reinen Displays mit ganzzahligem Skalierungsfaktor (Integer Scaling).
 - ⌨️ **Vollständige 56-Tasten-Tastatur:**
   - Exakte 4×14 Tastenmatrix inklusive Primary-, Shift/Aa- und Fn-Ebenen.
-  - Klickbare Buttons mit Tastendruck-Hervorhebung.
+  - Klickbare Tastenkappen mit Hervorhebung bei Maus- und Host-Tastatureingaben.
   - Physisches Host-Tastatur-Mapping (QWERTZ & QWERTY, Pfeiltasten, Sonderzeichen).
   - **Focus-Loss-Safety:** Schutz vor hängenden Tasten bei Fensterfokus-Wechsel.
 - 💾 **MicroSD-Speicherkarte mit Sandbox:**
@@ -80,6 +82,12 @@ cargo run -p m5fxx-desktop
 # Optimierter Release-Build
 cargo run --release -p m5fxx-desktop
 ```
+
+### Bedienung der Geräteansicht
+
+Die Standardansicht zeigt das vollständige Gerät mit dem laufenden Firmware-Display. Klicke auf eine Tastenkappe oder verwende die Host-Tastatur zur Eingabe; der kleine **G0**-Taster unter der Gerätebeschriftung ist ebenfalls bedienbar.
+
+Über **Zoomed Display Only** in der oberen Leiste wechselst du zur vergrößerten Displayansicht mit ganzzahliger Pixelskalierung. **Developer Panel** blendet die seitlichen Entwicklungswerkzeuge ein oder aus. Dort lässt sich zwischen Original Cardputer und Cardputer ADV wechseln; die Gerätebeschriftung folgt dem ausgewählten Modell, während beide dieselbe ADV-inspirierte Gehäuseansicht verwenden.
 
 ---
 

@@ -1,9 +1,12 @@
-//! Realistic vector rendering and layout metrics for the M5Stack Cardputer.
+//! ADV-inspired vector rendering and layout metrics for the M5Stack Cardputer.
 //!
 //! Physical Cardputer Dimensions:
 //! - 84.0 mm x 54.0 mm x 19.7 mm
 //! - Display: 1.14" IPS LCD (240x135 pixels, active area ~24.9mm x 14.9mm)
 //! - Keyboard: 56 keys arranged in 4 rows x 14 columns
+//!
+//! Decorative module details do not represent emulated GPIO functionality.
+//! Both hardware models share this shell; the badge follows the selected model.
 //!
 //! In virtual normalized design space:
 //! Device width: 840.0 pt
@@ -22,26 +25,26 @@ pub const DESIGN_HEIGHT: f32 = 540.0;
 pub const CASE_CORNER_RADIUS: u8 = 28;
 
 // Display bezel in design space
-pub const DISPLAY_BEZEL_X: f32 = 220.0;
-pub const DISPLAY_BEZEL_Y: f32 = 36.0;
-pub const DISPLAY_BEZEL_W: f32 = 400.0;
-pub const DISPLAY_BEZEL_H: f32 = 236.0;
+pub const DISPLAY_BEZEL_X: f32 = 166.0;
+pub const DISPLAY_BEZEL_Y: f32 = 32.0;
+pub const DISPLAY_BEZEL_W: f32 = 300.0;
+pub const DISPLAY_BEZEL_H: f32 = 192.0;
 
-pub const SCREEN_INNER_X: f32 = 240.0;
-pub const SCREEN_INNER_Y: f32 = 52.0;
-pub const SCREEN_INNER_W: f32 = 360.0;
-pub const SCREEN_INNER_H: f32 = 202.5; // Exactly 240:135 aspect ratio (16:9)
+pub const SCREEN_INNER_X: f32 = 185.0;
+pub const SCREEN_INNER_Y: f32 = 49.0;
+pub const SCREEN_INNER_W: f32 = 264.0;
+pub const SCREEN_INNER_H: f32 = 148.5; // Exactly 240:135 aspect ratio (16:9)
 
 // Keyboard dimensions in design space
-pub const KB_START_X: f32 = 48.0;
-pub const KB_START_Y: f32 = 296.0;
-pub const KB_TOTAL_W: f32 = 744.0;
-pub const KB_TOTAL_H: f32 = 212.0;
+pub const KB_START_X: f32 = 38.0;
+pub const KB_START_Y: f32 = 262.0;
+pub const KB_TOTAL_W: f32 = 764.0;
+pub const KB_TOTAL_H: f32 = 238.0;
 
-pub const KEY_GAP_X: f32 = 5.0;
-pub const KEY_GAP_Y: f32 = 6.0;
-pub const KEY_W: f32 = (KB_TOTAL_W - (COLS as f32 - 1.0) * KEY_GAP_X) / COLS as f32; // ~48.5 pt
-pub const KEY_H: f32 = (KB_TOTAL_H - (ROWS as f32 - 1.0) * KEY_GAP_Y) / ROWS as f32; // ~48.5 pt
+pub const KEY_GAP_X: f32 = 10.0;
+pub const KEY_GAP_Y: f32 = 13.0;
+pub const KEY_W: f32 = (KB_TOTAL_W - (COLS as f32 - 1.0) * KEY_GAP_X) / COLS as f32; // Key width in design space
+pub const KEY_H: f32 = (KB_TOTAL_H - (ROWS as f32 - 1.0) * KEY_GAP_Y) / ROWS as f32; // Key height in design space
 
 /// Calculates the bounding box in design space for a key at (row, col)
 pub fn get_key_rect_design(row: usize, col: usize) -> Rect {
@@ -105,143 +108,157 @@ pub fn render_cardputer_device(
 ) {
     let painter = ui.painter();
 
-    // 1. Device Outer Shadow
-    let case_rect_design = Rect::from_min_size(pos2(0.0, 0.0), vec2(DESIGN_WIDTH, DESIGN_HEIGHT));
-    let shadow_rect_screen = tf.to_screen_rect(case_rect_design.translate(vec2(8.0, 12.0)));
-    let case_radius = ((CASE_CORNER_RADIUS as f32 * tf.scale) as u8).max(1);
-    painter.rect_filled(
-        shadow_rect_screen,
-        CornerRadius::same(case_radius),
-        Color32::from_black_alpha(70),
-    );
-
-    // 2. Main Case Body (Cardputer dark graphite industrial finish: #2C2C30)
-    let case_rect_screen = tf.to_screen_rect(case_rect_design);
-    let case_color = Color32::from_rgb(0x28, 0x2A, 0x2E);
-    let case_bevel = Color32::from_rgb(0x3E, 0x41, 0x47);
-    painter.rect_filled(
-        case_rect_screen,
-        CornerRadius::same(case_radius),
-        case_color,
-    );
-    painter.rect_stroke(
-        case_rect_screen,
-        CornerRadius::same(case_radius),
-        Stroke::new(2.5 * tf.scale, case_bevel),
-        StrokeKind::Outside,
-    );
-
-    // 3. Side details: Screws / Accents
-    let screw_color = Color32::from_rgb(0x75, 0x78, 0x82);
-    let screw_positions = [
-        pos2(24.0, 24.0),
-        pos2(DESIGN_WIDTH - 24.0, 24.0),
-        pos2(24.0, DESIGN_HEIGHT - 24.0),
-        pos2(DESIGN_WIDTH - 24.0, DESIGN_HEIGHT - 24.0),
-    ];
-    for p in screw_positions {
-        let sp = tf.to_screen_pos(p);
-        painter.circle_filled(sp, 6.0 * tf.scale, screw_color);
-        painter.circle_stroke(
-            sp,
-            6.0 * tf.scale,
-            Stroke::new(1.0 * tf.scale, Color32::BLACK),
+    // Layered moulded shell: dark base, silver edge and warm white faceplate.
+    let radius = |r: f32| CornerRadius::same((r * tf.scale).max(1.0) as u8);
+    let body = Rect::from_min_size(Pos2::ZERO, vec2(DESIGN_WIDTH, DESIGN_HEIGHT));
+    for (spread, alpha) in [(16.0, 10), (10.0, 18), (4.0, 30)] {
+        painter.rect_filled(
+            tf.to_screen_rect(body.translate(vec2(0.0, 16.0)).expand(spread)),
+            radius(28.0),
+            Color32::from_black_alpha(alpha),
         );
     }
+    painter.rect_filled(
+        tf.to_screen_rect(body),
+        radius(24.0),
+        Color32::from_rgb(45, 48, 49),
+    );
+    let edge = Rect::from_min_size(pos2(0.0, 0.0), vec2(840.0, 524.0));
+    painter.rect_filled(
+        tf.to_screen_rect(edge),
+        radius(24.0),
+        Color32::from_rgb(167, 173, 171),
+    );
+    let face = Rect::from_min_size(pos2(3.0, 3.0), vec2(834.0, 505.0));
+    painter.rect_filled(
+        tf.to_screen_rect(face),
+        radius(22.0),
+        Color32::from_rgb(230, 233, 227),
+    );
+    painter.rect_stroke(
+        tf.to_screen_rect(face.shrink(3.0)),
+        radius(20.0),
+        Stroke::new(tf.scale, Color32::from_rgb(252, 253, 248)),
+        StrokeKind::Inside,
+    );
 
-    // 4. M5Stack Brand Label & Model Badge
-    let brand_pos = tf.to_screen_pos(pos2(60.0, 42.0));
+    for p in [
+        pos2(20.0, 20.0),
+        pos2(820.0, 20.0),
+        pos2(20.0, 493.0),
+        pos2(820.0, 493.0),
+    ] {
+        let center = tf.to_screen_pos(p);
+        painter.circle_filled(center, 6.0 * tf.scale, Color32::from_rgb(128, 134, 130));
+        painter.circle_filled(center, 4.0 * tf.scale, Color32::from_rgb(197, 202, 195));
+        painter.line_segment(
+            [
+                center - vec2(2.5, 2.5) * tf.scale,
+                center + vec2(2.5, 2.5) * tf.scale,
+            ],
+            Stroke::new(tf.scale, Color32::from_rgb(83, 89, 86)),
+        );
+    }
     painter.text(
-        brand_pos,
+        tf.to_screen_pos(pos2(32.0, 38.0)),
+        egui::Align2::LEFT_TOP,
+        "CARDPUTER",
+        FontId::monospace(15.0 * tf.scale),
+        Color32::from_rgb(53, 61, 59),
+    );
+    let badge = match hal.status.model {
+        CardputerModel::CardputerOriginal => "M5",
+        CardputerModel::CardputerAdv => "ADV",
+    };
+    painter.text(
+        tf.to_screen_pos(pos2(32.0, 63.0)),
+        egui::Align2::LEFT_TOP,
+        badge,
+        FontId::proportional(35.0 * tf.scale),
+        Color32::from_rgb(24, 33, 32),
+    );
+    painter.text(
+        tf.to_screen_pos(pos2(32.0, 111.0)),
         egui::Align2::LEFT_TOP,
         "M5STACK",
-        FontId::new(22.0 * tf.scale, FontFamily::Proportional),
-        Color32::from_rgb(0xF0, 0x50, 0x22), // Official M5Stack Orange
-    );
-    let model_badge = match hal.status.model {
-        CardputerModel::CardputerOriginal => "CARDPUTER",
-        CardputerModel::CardputerAdv => "CARDPUTER ADV",
-    };
-    let model_pos = tf.to_screen_pos(pos2(60.0, 68.0));
-    painter.text(
-        model_pos,
-        egui::Align2::LEFT_TOP,
-        model_badge,
-        FontId::new(15.0 * tf.scale, FontFamily::Monospace),
-        Color32::from_rgb(0x9E, 0xA2, 0xAE),
+        FontId::monospace(13.0 * tf.scale),
+        Color32::from_rgb(69, 78, 73),
     );
 
-    // 5. Speaker Grille (Left of screen, perforated dots)
-    let speaker_start_x = 60.0;
-    let speaker_start_y = 104.0;
-    for row in 0..5 {
-        for col in 0..6 {
-            let p = pos2(
-                speaker_start_x + col as f32 * 14.0,
-                speaker_start_y + row as f32 * 14.0,
+    // Exposed expansion-module label, as on the ADV reference.
+    let module = Rect::from_min_size(pos2(510.0, 30.0), vec2(286.0, 160.0));
+    painter.rect_filled(
+        tf.to_screen_rect(module),
+        radius(10.0),
+        Color32::from_rgb(187, 195, 189),
+    );
+    painter.rect_filled(
+        tf.to_screen_rect(module.shrink(5.0)),
+        radius(7.0),
+        Color32::from_rgb(247, 248, 237),
+    );
+    painter.text(
+        tf.to_screen_pos(pos2(528.0, 42.0)),
+        egui::Align2::LEFT_TOP,
+        "M5Stack / ESP32-S3",
+        FontId::monospace(13.0 * tf.scale),
+        Color32::from_rgb(54, 65, 59),
+    );
+    for col in 0..12 {
+        for row in 0..2 {
+            let x = 530.0 + col as f32 * 21.5;
+            let y = 72.0 + row as f32 * 60.0;
+            let colors = [
+                Color32::from_rgb(231, 151, 76),
+                Color32::from_rgb(104, 186, 183),
+                Color32::from_rgb(221, 178, 189),
+            ];
+            painter.rect_filled(
+                tf.to_screen_rect(Rect::from_min_size(pos2(x, y), vec2(15.0, 44.0))),
+                radius(2.0),
+                colors[col % 3],
             );
-            painter.circle_filled(
-                tf.to_screen_pos(p),
-                2.5 * tf.scale,
-                Color32::from_rgb(0x18, 0x19, 0x1B),
-            );
+            for hole in 0..3 {
+                painter.circle_filled(
+                    tf.to_screen_pos(pos2(x + 7.5, y + 8.0 + hole as f32 * 13.0)),
+                    3.0 * tf.scale,
+                    Color32::from_rgb(61, 72, 67),
+                );
+            }
         }
     }
-
-    // 6. Top/Right Hardware Controls: BtnG0 (Download/Action button) and LED
-    let btn_g0_rect_design =
-        Rect::from_min_size(pos2(DESIGN_WIDTH - 150.0, 40.0), vec2(90.0, 36.0));
-    let btn_g0_rect_screen = tf.to_screen_rect(btn_g0_rect_design);
-    let g0_hover = ui.rect_contains_pointer(btn_g0_rect_screen);
-    let g0_pressed = g0_hover && ui.input(|i| i.pointer.primary_down());
-
-    if g0_pressed {
+    // Small physical G0 button below the branding.
+    let g0 = tf.to_screen_rect(Rect::from_min_size(pos2(78.0, 156.0), vec2(42.0, 33.0)));
+    let hover = ui.rect_contains_pointer(g0);
+    if hover && ui.input(|i| i.pointer.primary_down()) {
         hal.input.press_btn_g0();
     } else {
         hal.input.release_btn_g0();
     }
-
-    let g0_color = if hal.input.btn_g0_pressed {
-        Color32::from_rgb(0x40, 0x80, 0x50)
-    } else if g0_hover {
-        Color32::from_rgb(0x55, 0x58, 0x62)
-    } else {
-        Color32::from_rgb(0x3B, 0x3D, 0x44)
-    };
-    let g0_radius = ((6.0 * tf.scale) as u8).max(1);
-    painter.rect_filled(btn_g0_rect_screen, CornerRadius::same(g0_radius), g0_color);
-    painter.rect_stroke(
-        btn_g0_rect_screen,
-        CornerRadius::same(g0_radius),
-        Stroke::new(1.5 * tf.scale, Color32::BLACK),
-        StrokeKind::Inside,
+    painter.rect_filled(g0, radius(9.0), Color32::from_rgb(64, 72, 67));
+    painter.rect_filled(
+        g0.shrink(4.0 * tf.scale),
+        radius(6.0),
+        if hal.input.btn_g0_pressed {
+            Color32::from_rgb(235, 145, 62)
+        } else {
+            Color32::from_rgb(193, 201, 189)
+        },
     );
     painter.text(
-        btn_g0_rect_screen.center(),
+        g0.center(),
         egui::Align2::CENTER_CENTER,
-        "G0 / BTN",
-        FontId::new(13.0 * tf.scale, FontFamily::Monospace),
-        Color32::WHITE,
+        "G0",
+        FontId::monospace(12.0 * tf.scale),
+        Color32::from_rgb(33, 40, 36),
     );
-
-    // Power status LED (green glowing indicator)
-    let led_pos = tf.to_screen_pos(pos2(DESIGN_WIDTH - 105.0, 95.0));
-    painter.circle_filled(led_pos, 5.0 * tf.scale, Color32::from_rgb(0x22, 0xC5, 0x5E));
-    painter.circle_stroke(
-        led_pos,
-        7.0 * tf.scale,
-        Stroke::new(
-            1.0 * tf.scale,
-            Color32::from_rgba_premultiplied(34, 197, 94, 100),
-        ),
-    );
-    painter.text(
-        tf.to_screen_pos(pos2(DESIGN_WIDTH - 105.0, 110.0)),
-        egui::Align2::CENTER_TOP,
-        "PWR",
-        FontId::new(10.0 * tf.scale, FontFamily::Monospace),
-        Color32::from_rgb(0x75, 0x78, 0x82),
-    );
+    for col in 0..5 {
+        painter.circle_filled(
+            tf.to_screen_pos(pos2(37.0 + col as f32 * 8.0, 207.0)),
+            2.0 * tf.scale,
+            Color32::from_rgb(77, 85, 80),
+        );
+    }
 
     // 7. Display Bezel (Glossy black acrylic border around LCD)
     let bezel_rect_design = Rect::from_min_size(
@@ -291,12 +308,12 @@ pub fn render_cardputer_device(
     painter.rect_filled(
         kb_tray_screen,
         CornerRadius::same(tray_radius),
-        Color32::from_rgb(0x1C, 0x1D, 0x20),
+        Color32::from_rgb(215, 220, 212),
     );
     painter.rect_stroke(
         kb_tray_screen,
         CornerRadius::same(tray_radius),
-        Stroke::new(1.5 * tf.scale, Color32::from_rgb(0x10, 0x11, 0x13)),
+        Stroke::new(1.5 * tf.scale, Color32::from_rgb(198, 205, 196)),
         StrokeKind::Inside,
     );
 
@@ -318,56 +335,48 @@ pub fn render_cardputer_device(
                 hal.input.press_key(row as u8, col as u8);
             }
 
-            // Visual Key Cap styling
-            let (key_bg, text_color) = if is_pressed_virtual {
-                (Color32::from_rgb(0x3B, 0x82, 0xF6), Color32::WHITE) // Highlighted Bright Blue
-            } else if is_hovered {
-                (
-                    Color32::from_rgb(0x45, 0x48, 0x52),
-                    Color32::from_rgb(0xF3, 0xF4, 0xF6),
-                )
+            // Tiny raised black keycaps with orange and green modifier accents.
+            let accent = if row == 2 && (col == 0 || col == 13) {
+                Some(Color32::from_rgb(239, 126, 47))
+            } else if row == 3 && col == 0 {
+                Some(Color32::from_rgb(74, 175, 125))
             } else {
-                // Color coding for special keys
-                if (row == 2 && col == 0) || (row == 2 && col == 1) {
-                    // Fn, Shift
-                    (
-                        Color32::from_rgb(0x32, 0x35, 0x3D),
-                        Color32::from_rgb(0xFB, 0xBF, 0x24),
-                    ) // Amber
-                } else if row == 2 && col == 13 {
-                    // Enter
-                    (
-                        Color32::from_rgb(0x2E, 0x3A, 0x4E),
-                        Color32::from_rgb(0x60, 0xA5, 0xFA),
-                    ) // Blue
-                } else if row == 0 && col == 13 {
-                    // Del
-                    (
-                        Color32::from_rgb(0x45, 0x2A, 0x2E),
-                        Color32::from_rgb(0xF8, 0x71, 0x71),
-                    ) // Red
-                } else {
-                    (
-                        Color32::from_rgb(0x38, 0x3B, 0x43),
-                        Color32::from_rgb(0xDD, 0xDF, 0xE5),
-                    )
-                }
+                None
             };
-
-            // Keycap shape with tactile bevel
-            let key_radius = ((4.0 * tf.scale) as u8).max(1);
-            painter.rect_filled(key_rect_screen, CornerRadius::same(key_radius), key_bg);
-            painter.rect_stroke(
-                key_rect_screen,
-                CornerRadius::same(key_radius),
-                Stroke::new(1.0 * tf.scale, Color32::from_rgb(0x22, 0x24, 0x29)),
-                StrokeKind::Inside,
+            let key_bg = if is_pressed_virtual {
+                Color32::from_rgb(55, 146, 162)
+            } else if is_hovered {
+                Color32::from_rgb(80, 87, 81)
+            } else {
+                accent.unwrap_or(Color32::from_rgb(37, 43, 39))
+            };
+            let text_color = if accent.is_some() && !is_pressed_virtual {
+                Color32::from_rgb(28, 35, 29)
+            } else {
+                Color32::from_rgb(243, 245, 234)
+            };
+            let key_radius = radius(10.0);
+            painter.rect_filled(
+                key_rect_screen.translate(vec2(0.0, 3.0 * tf.scale)),
+                key_radius,
+                Color32::from_rgb(131, 140, 130),
+            );
+            painter.rect_filled(key_rect_screen, key_radius, key_bg);
+            painter.line_segment(
+                [
+                    key_rect_screen.min + vec2(7.0, 2.0) * tf.scale,
+                    pos2(
+                        key_rect_screen.max.x - 7.0 * tf.scale,
+                        key_rect_screen.min.y + 2.0 * tf.scale,
+                    ),
+                ],
+                Stroke::new(tf.scale, Color32::from_white_alpha(45)),
             );
 
             // Labels
             let (primary, shift_label, fn_label) = get_key_labels(row, col);
 
-            let font_primary = FontId::new((12.5 * tf.scale).max(7.0), FontFamily::Monospace);
+            let font_primary = FontId::new((16.0 * tf.scale).max(7.0), FontFamily::Monospace);
             let font_secondary = FontId::new((8.5 * tf.scale).max(5.5), FontFamily::Monospace);
 
             // Primary label in center
@@ -407,7 +416,7 @@ pub fn render_cardputer_device(
                     egui::Align2::RIGHT_TOP,
                     fn_label,
                     font_secondary,
-                    Color32::from_rgb(0xF5, 0x9E, 0x0B), // Orange-amber for Fn actions
+                    Color32::from_rgb(95, 185, 150), // Orange-amber for Fn actions
                 );
             }
         }
