@@ -22,21 +22,22 @@
 
 ## 1. Features & Highlights
 
-- 🕹️ **Cardputer-Ansicht im Stil des ADV:**
-  - Skalierbare Vektordarstellung mit heller Frontplatte, grauer Gehäusekante und dunklem Sockel.
-  - Display links oben, farbige Moduldetails rechts sowie Schrauben, M5Stack-Beschriftung und interaktiver **BtnG0**-Taster.
-  - Kleine schwarze Tastenkappen mit Schatten, Lichtkante und orangefarbenen bzw. grünen Akzenten.
-  - Zentrierte Geräteansicht mit Abstand zum Fensterrand auf dunklem Hintergrund; für Retina und HiDPI skalierbar.
-  - Die Darstellung ist an eine Cardputer-ADV-Produktfotografie angelehnt; die Moduldetails sind dekorativ und simulieren keine GPIO-Funktion.
+- 🕹️ **Authentische M5Stack Cardputer Hardware-Nachbildung:**
+  - Originalgetreues Industrie-Gehäuse im warmen Cardputer-Hellgrau (`#D1D4DC`) mit Schattenwürfen, Kantenfasen und präzisen Port-Aussparungen (USB-C Buchse rechts, MicroSD-Schacht links).
+  - **Oberer linker Bereich:** Weißes `[ CARD COMPUTER ]` Badge mit orangefarbenen Eckwinkeln, PDM-Mikrofonbeschriftung (`Mic Data: G46 Clk: G43`), 2 ovalen Akustikschlitzen und Lautsprecher-Öffnungen.
+  - **Mitte (Display):** Hochglänzender schwarzer Acryl-Bezel mit seitlichen LED-Statusindikatoren (`Aa`, `fn`, `ctrl`, `opt`, `alt`), eingeprägtem M5-Logo und zwei M2-Sechskantschrauben.
+  - **Oberer rechter Bereich:** Detailreiches M5Stamp-S3 Modul mit schwarzer Leiterplatte, 2.4GHz Mäander-Goldantenne, laser-beschriftetem RF-Shield (`STAMP S3 / ESP32-S3FN8`), farbkodierten GPIO-Dots und taktilem **BtnG0**-Taster.
+  - Zentrierte, stufenlos skalierbare Geräteansicht mit optimierter HiDPI- und Retina-Unterstützung.
 - 📺 **ST7789V2 IPS LCD Emulation:**
   - Echte Hardware-Auflösung von 240 × 135 Pixeln mit RGB565-Farbraum.
   - **Nearest-Neighbor GPU-Texturierung:** Absolut scharfe Pixel-Optik ohne verwaschene Filter.
   - **Zoomed Display Only Modus:** Großansicht des reinen Displays mit ganzzahligem Skalierungsfaktor (Integer Scaling).
-- ⌨️ **Vollständige 56-Tasten-Tastatur:**
-  - Exakte 4×14 Tastenmatrix inklusive Primary-, Shift/Aa- und Fn-Ebenen.
-  - Klickbare Tastenkappen mit Hervorhebung bei Maus- und Host-Tastatureingaben.
-  - Physisches Host-Tastatur-Mapping (QWERTZ & QWERTY, Pfeiltasten, Sonderzeichen).
-  - **Focus-Loss-Safety:** Schutz vor hängenden Tasten bei Fensterfokus-Wechsel.
+- ⌨️ **Vollständige 56-Tasten-Tastatur & Navigation:**
+  - Exakte 4×14 Tastenmatrix mit weißen Beschriftungen, orangefarbenen Pfeilsymbolen (`▲`, `▼`, `◄`, `►`) und orangefarbenem `ok ↵` auf der Enter-Taste.
+  - **Direkte Host-Navigation:** Pfeiltasten (`ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`), `Enter`, `Esc`, `Tab` und `Backspace` steuern Firmware und Menüs unmittelbar auf der PC-Tastatur (kein umständliches `Fn`-Drücken für Pfeiltasten nötig).
+  - Klickbare Tastenkappen mit optischem Leuchteffekt (M5-Orange) bei Druck.
+  - Internationales Layout & Unicode-Unterstützung (QWERTZ & QWERTY).
+  - **Focus-Loss-Safety:** Automatisches Zurücksetzen aller Tastenzustände bei Fokusverlust, um Hängenbleiben zu verhindern.
 - 💾 **MicroSD-Speicherkarte mit Sandbox:**
   - Abbildung auf ein konfigurierbares Host-Verzeichnis.
   - Zuverlässiger Schutz vor Directory-Traversal-Angriffen (`../` oder Ausbrüche blockiert).
