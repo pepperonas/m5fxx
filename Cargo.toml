@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/m5fxx-core",
+    "crates/m5fxx-factory",
     "crates/m5fxx-app-demo",
     "crates/m5fxx-desktop",
 ]

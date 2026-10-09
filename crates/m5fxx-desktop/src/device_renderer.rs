@@ -316,50 +316,6 @@ pub fn render_cardputer_device(
         StrokeKind::Inside,
     );
 
-    // Left bezel status indicators (Aa, fn, ctrl, opt, alt)
-    let indicators = [
-        ("Aa", hal.input.shift_active),
-        ("fn", hal.input.fn_active),
-        ("ctrl", hal.input.ctrl_active),
-        ("opt", hal.input.opt_active),
-        ("alt", hal.input.alt_active),
-    ];
-    for (i, (label, active)) in indicators.iter().enumerate() {
-        let ind_y = 66.0 + i as f32 * 27.0;
-        let color = if *active {
-            Color32::from_rgb(0x00, 0xE6, 0x76) // Bright green when active
-        } else {
-            Color32::from_rgb(0x4A, 0x50, 0x5C) // Dim grey
-        };
-        painter.circle_filled(tf.to_screen_pos(pos2(202.0, ind_y)), 2.8 * tf.scale, color);
-        painter.text(
-            tf.to_screen_pos(pos2(212.0, ind_y)),
-            egui::Align2::LEFT_CENTER,
-            *label,
-            FontId::new((8.5 * tf.scale).max(5.0), FontFamily::Monospace),
-            if *active {
-                Color32::WHITE
-            } else {
-                Color32::from_rgb(0x72, 0x78, 0x86)
-            },
-        );
-    }
-
-    // Embossed "M5" logo on right bezel margin
-    let m5_logo_rect = Rect::from_center_size(pos2(508.0, 134.0), vec2(20.0, 36.0));
-    painter.rect_filled(
-        tf.to_screen_rect(m5_logo_rect),
-        radius(4.0),
-        Color32::from_rgb(0x22, 0x24, 0x2A),
-    );
-    painter.text(
-        tf.to_screen_pos(pos2(508.0, 134.0)),
-        egui::Align2::CENTER_CENTER,
-        "M5",
-        FontId::new((12.0 * tf.scale).max(7.0), FontFamily::Monospace),
-        Color32::from_rgb(0xFA, 0x6A, 0x00), // Orange M5 accent
-    );
-
     // Active IPS Screen viewport (ST7789 240x135)
     let screen_rect_design = Rect::from_min_size(
         pos2(SCREEN_INNER_X, SCREEN_INNER_Y),
@@ -371,12 +327,12 @@ pub fn render_cardputer_device(
     let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
     painter.image(display_texture_id, screen_rect_screen, uv, Color32::WHITE);
 
-    // LCD inner rim shadow border
+    // The glass rim is outside the active area: never cover firmware edge pixels.
     painter.rect_stroke(
-        screen_rect_screen,
+        screen_rect_screen.expand(0.5 * tf.scale),
         CornerRadius::ZERO,
-        Stroke::new(1.5 * tf.scale, Color32::from_rgb(0x0A, 0x0C, 0x10)),
-        StrokeKind::Inside,
+        Stroke::new(tf.scale, Color32::from_rgb(10, 12, 16)),
+        StrokeKind::Outside,
     );
 
     // =========================================================================

@@ -228,16 +228,27 @@ pub fn render_dev_panel(
                         .unwrap_or_else(|| "firmware.bin".to_string());
                     let size = std::fs::metadata(&file_path).map(|m| m.len() as usize).unwrap_or(0);
                     hal.log(format!("Selected firmware file: {} ({} bytes)", name, size));
-                    dev_state.installed_firmwares.push(name.clone());
+                    if !dev_state.installed_firmwares.contains(&name) {
+                        dev_state.installed_firmwares.push(name.clone());
+                    }
                     app.trigger_firmware_flash(name, size);
                 }
             }
 
             if !dev_state.installed_firmwares.is_empty() {
                 ui.add_space(4.0);
-                ui.label("Recently installed firmwares:");
+                ui.label("Recently installed firmwares (click to boot):");
+                let mut flash_target = None;
                 for fw in &dev_state.installed_firmwares {
-                    ui.label(RichText::new(format!("• {}", fw)).small().color(Color32::LIGHT_BLUE));
+                    ui.horizontal(|ui| {
+                        if ui.button(format!("▶ {}", fw)).clicked() {
+                            flash_target = Some(fw.clone());
+                        }
+                    });
+                }
+                if let Some(target) = flash_target {
+                    hal.log(format!("Booting firmware: {}", target));
+                    app.trigger_firmware_flash(target, 0);
                 }
             }
         });

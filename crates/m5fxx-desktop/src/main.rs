@@ -2,6 +2,7 @@
 
 pub mod dev_panel;
 pub mod device_renderer;
+pub mod display_view;
 pub mod keyboard_mapping;
 
 use dev_panel::{render_dev_panel, DevPanelState};
@@ -167,8 +168,12 @@ impl CardputerSimulatorApp {
                 _ => {}
             }
         }
+    }
 
-        // Process Drag and Drop dropped files (e.g. .bin, .hex firmware images)
+    /// Processes Drag and Drop dropped files (e.g. .bin, .hex firmware images).
+    /// This is called unconditionally, independent of keyboard focus, so dropping files
+    /// from Finder/Explorer into the window works reliably on all platforms.
+    fn handle_drag_and_drop(&mut self, ctx: &Context) {
         let dropped_files = ctx.input(|i| i.raw.dropped_files.clone());
         for file in dropped_files {
             let file_name = if !file.name.is_empty() {
@@ -192,10 +197,12 @@ impl CardputerSimulatorApp {
             };
 
             self.hal.log(format!(
-                "Drag & Drop: Received '{}' ({} bytes)",
+                "Drag & Drop: Flashing '{}' ({} bytes)",
                 file_name, file_size
             ));
-            self.dev_state.installed_firmwares.push(file_name.clone());
+            if !self.dev_state.installed_firmwares.contains(&file_name) {
+                self.dev_state.installed_firmwares.push(file_name.clone());
+            }
             self.app.trigger_firmware_flash(file_name, file_size);
         }
     }
@@ -234,6 +241,7 @@ impl eframe::App for CardputerSimulatorApp {
         ctx.request_repaint();
 
         self.dev_state.update_fps();
+        self.handle_drag_and_drop(ctx);
         self.handle_host_input(ctx);
 
         // Advance simulation tick if not paused
@@ -294,24 +302,10 @@ impl eframe::App for CardputerSimulatorApp {
             let available_rect = ui.available_rect_before_wrap();
 
             if self.display_only_mode {
-                // Render solely the display stretched with integer pixel scaling
-                let max_w = available_rect.width();
-                let max_h = available_rect.height();
-
-                // Compute maximum integer scale factor that fits
-                let int_scale = ((max_w / DISPLAY_WIDTH as f32)
-                    .min(max_h / DISPLAY_HEIGHT as f32)
-                    .floor() as i32)
-                    .max(1);
-
-                let target_w = (DISPLAY_WIDTH as i32 * int_scale) as f32;
-                let target_h = (DISPLAY_HEIGHT as i32 * int_scale) as f32;
-
-                let offset_x = available_rect.min.x + (max_w - target_w) * 0.5;
-                let offset_y = available_rect.min.y + (max_h - target_h) * 0.5;
-                let screen_rect =
-                    Rect::from_min_size(egui::pos2(offset_x, offset_y), vec2(target_w, target_h));
-
+                let (screen_rect, int_scale) = display_view::pixel_rect(
+                    available_rect.shrink2(vec2(0.0, 20.0)),
+                    ctx.pixels_per_point(),
+                );
                 let painter = ui.painter();
                 painter.rect_filled(available_rect, 0.0, Color32::from_rgb(0x10, 0x10, 0x14));
                 painter.image(
@@ -330,11 +324,11 @@ impl eframe::App for CardputerSimulatorApp {
                 let info = format!(
                     "Pixel Scale: {}x ({}x{} px)",
                     int_scale,
-                    DISPLAY_WIDTH as i32 * int_scale,
-                    DISPLAY_HEIGHT as i32 * int_scale
+                    DISPLAY_WIDTH as u32 * int_scale,
+                    DISPLAY_HEIGHT as u32 * int_scale
                 );
                 painter.text(
-                    egui::pos2(screen_rect.min.x + 8.0, screen_rect.min.y + 8.0),
+                    egui::pos2(screen_rect.min.x, screen_rect.max.y + 8.0),
                     egui::Align2::LEFT_TOP,
                     info,
                     egui::FontId::monospace(14.0),

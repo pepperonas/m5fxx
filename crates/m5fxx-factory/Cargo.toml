@@ -1,0 +1,9 @@
+[package]
+name = "m5fxx-factory"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+[dependencies]
+m5fxx-core = { path = "../m5fxx-core" }
+[build-dependencies]
+cc = { version = "1", features = ["parallel"] }

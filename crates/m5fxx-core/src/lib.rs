@@ -5,6 +5,7 @@ pub mod display;
 pub mod font;
 pub mod hal;
 pub mod input;
+pub mod st7789;
 pub mod storage;
 
 pub use color::Color565;
