@@ -157,7 +157,7 @@ impl DemoApp {
         self.flash_file_size = file_size;
         self.flash_progress = 0.0;
         self.flash_timer = 0.0;
-        self.flash_status = "Verifying binary format...".to_string();
+        self.flash_status = "Preparing merged image...".to_string();
         self.fw_uptime = 0.0;
         self.fw_log_lines.clear();
         self.fw_last_key = None;
@@ -345,32 +345,30 @@ impl DemoApp {
                 self.flash_timer += dt;
                 if self.flash_timer < 0.8 {
                     self.flash_progress = (self.flash_timer / 0.8) * 0.15;
-                    self.flash_status = "Verifying binary header...".to_string();
+                    self.flash_status = "Preparing ESP32-S3 image...".to_string();
                 } else if self.flash_timer < 2.5 {
                     let progress = 0.15 + ((self.flash_timer - 0.8) / 1.7) * 0.70;
                     self.flash_progress = progress;
-                    self.flash_status = format!("Writing Flash: {:.0}%", progress * 100.0);
+                    self.flash_status = format!("Import: {:.0}%", progress * 100.0);
                 } else if self.flash_timer < 3.2 {
                     self.flash_progress = 0.95;
-                    self.flash_status = "Verifying checksum (MD5)...".to_string();
+                    self.flash_status = "Preparing emulator...".to_string();
                 } else if self.flash_timer < 4.2 {
                     self.flash_progress = 1.0;
-                    self.flash_status = "Flash complete! Rebooting...".to_string();
+                    self.flash_status = "Starting ESP32-S3 emulator...".to_string();
                 } else {
                     // Reboot directly into the flashed firmware runtime screen!
                     self.screen = AppScreen::LoadedFirmware;
                     self.fw_uptime = 0.0;
                     self.fw_log_lines.clear();
                     self.fw_log_lines
-                        .push("[SYS] CPU0: ESP32-S3 @ 240MHz".to_string());
+                        .push("ESP32 binary not executed.".to_string());
                     self.fw_log_lines
-                        .push("[SYS] Flash 8MB Quad SPI detected".to_string());
+                        .push("CPU emulation unavailable.".to_string());
                     self.fw_log_lines
-                        .push(format!("[BOOT] Loaded: {}", self.flash_file_name));
-                    self.fw_log_lines
-                        .push("[APP] Main loop started (ready)".to_string());
+                        .push("Use ADV Factory for native UI.".to_string());
                     hal.log(format!(
-                        "Firmware '{}' booted successfully",
+                        "Cannot execute ESP32 image '{}': CPU emulation unavailable",
                         self.flash_file_name
                     ));
                     return;
@@ -717,16 +715,12 @@ impl DemoApp {
 
         // Flashing icon / header
         hal.display
-            .draw_string(8, 18, "INSTALLING FIRMWARE...", Color565::YELLOW, None, 1);
+            .draw_string(8, 18, "IMPORTING FIRMWARE...", Color565::YELLOW, None, 1);
 
         // Binary filename & size
         let info = format!(
             "File: {}",
-            if self.flash_file_name.len() > 24 {
-                &self.flash_file_name[..24]
-            } else {
-                &self.flash_file_name
-            }
+            self.flash_file_name.chars().take(24).collect::<String>()
         );
         hal.display
             .draw_string(8, 32, &info, Color565::WHITE, None, 1);
@@ -772,7 +766,7 @@ impl DemoApp {
         hal.display.draw_string(
             8,
             96,
-            "Target: ESP32-S3 Flash @ 0x10000",
+            "Target: ESP32-S3 in QEMU",
             Color565::DARKGREY,
             None,
             1,
@@ -797,7 +791,7 @@ impl DemoApp {
         // Header with active status and firmware title
         let header_title = format!("▶ FW: {}", self.flash_file_name);
         let header_cropped = if header_title.len() > 24 {
-            format!("{}...", &header_title[..21])
+            format!("{}...", header_title.chars().take(21).collect::<String>())
         } else {
             header_title
         };
@@ -811,7 +805,7 @@ impl DemoApp {
 
         let m5_orange = Color565::from_rgb888(0xFA, 0x6A, 0x00);
         hal.display
-            .draw_string(8, 19, "RUNNING", Color565::GREENYELLOW, None, 1);
+            .draw_string(8, 19, "NOT EXECUTED", Color565::GREENYELLOW, None, 1);
 
         let size_str = if self.flash_file_size > 0 {
             format!("{:.1} KB", self.flash_file_size as f32 / 1024.0)
@@ -821,7 +815,7 @@ impl DemoApp {
         hal.display
             .draw_string(60, 19, &size_str, Color565::LIGHTGREY, None, 1);
 
-        let fw_run_time = format!("Run: {:.1}s", self.fw_uptime);
+        let fw_run_time = format!("View: {:.1}s", self.fw_uptime);
         hal.display.draw_string(
             DISPLAY_WIDTH as i32 - (fw_run_time.len() as i32 * 6) - 10,
             19,
@@ -849,7 +843,7 @@ impl DemoApp {
 
         // Title of console
         hal.display
-            .draw_string(8, 37, "UART0 / Serial Log Output:", Color565::CYAN, None, 1);
+            .draw_string(8, 37, "Simulator status:", Color565::CYAN, None, 1);
 
         // Render log lines
         let mut y = 49;
@@ -937,7 +931,10 @@ mod tests {
         app.update(&mut hal, 5.0);
         assert_eq!(app.screen, AppScreen::LoadedFirmware);
         assert_eq!(app.flash_file_name, "custom_fw.bin");
-        assert!(!app.fw_log_lines.is_empty());
+        assert!(app
+            .fw_log_lines
+            .iter()
+            .any(|line| line.contains("not executed")));
 
         // Press a key in the loaded firmware
         hal.input.press_cardputer_key(CardputerKey::Enter);

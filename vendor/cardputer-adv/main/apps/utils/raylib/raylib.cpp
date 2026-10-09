@@ -83,8 +83,8 @@ void DrawTriangle(Vector2 v1, Vector2 v2, Vector2 v3, uint32_t color)
 }
 
 #include <random>
-std::random_device rd;
-std::mt19937 gen(rd());
+// Deterministic desktop fixture seed.
+std::mt19937 gen(0);
 int GetRandomValue(int min, int max)
 {
     std::uniform_int_distribution<> dist(min, max);

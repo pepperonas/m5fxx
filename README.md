@@ -44,13 +44,12 @@
 - 💾 **MicroSD-Speicherkarte mit Sandbox:**
   - Abbildung auf ein konfigurierbares Host-Verzeichnis.
   - Zuverlässiger Schutz vor Directory-Traversal-Angriffen (`../` oder Ausbrüche blockiert).
-- ⚡ **Drag & Drop Firmware Installation & Boot:**
-  - Ziehe beliebige Firmware-Dateien (`.bin`, `.hex`, `.elf`) direkt per Drag-and-Drop auf das Simulatorfenster.
-  - Automatische visuelle Drop-Overlay-Anzeige (`⚡ Drop to Flash Firmware`).
-  - Animierte ESP32-S3 Flash-Simulation im Display mit Fortschrittsbalken, Größenprüfung und Prüfsummen-Verifikation.
-  - **Automatischer Boot nach dem Flashen:** Startet die geflashte Firmware direkt in einer dedizierten Runtime-Ansicht mit Firmware-Titel, Betriebszeit, seriellem Log-/UART-Output (`[SYS]`, `[BOOT]`, `[APP]`) und interaktiver Tastenverarbeitung (oder bootet bei Werks-Images nahtlos in die native ADV-Firmware).
-  - Zuletzt geflashte Firmwares werden in der Liste des Developer Panels gespeichert und können mit `▶ <name>` jederzeit erneut gebootet werden.
-  - Alternativ auch manuelle Dateiauswahl über den Button im Developer Panel.
+- ⚡ **ESP32-S3-Firmware tatsächlich ausführen:**
+  - Zusammengeführte `.bin`-Images mit Bootloader, Partitionstabelle und Anwendung per Drag-and-Drop oder Dateiauswahl laden.
+  - Öffentlicher Espressif-QEMU mit Cardputer-Erweiterung führt den Xtensa-Code aus; SPI-LCD-Daten gelangen in den ST7789-Controller.
+  - Verifiziert mit **Bruce 1.8**: Bootlogo, Hauptmenü und Navigation von WiFi zu BLE.
+  - Reales UART-/Emulatorlog, Pause und Neustart sind im Developer Panel verfügbar.
+  - Zuletzt importierte Images lassen sich innerhalb der Sitzung erneut starten. Die Quelldatei bleibt unverändert.
 - 🛠️ **Integriertes Entwickler-Panel:**
   - Simulation pausieren & fortsetzen.
   - Firmware- und HAL-Reset.
@@ -58,22 +57,34 @@
   - Native Ordnerauswahl für die virtuelle SD-Karte via Dateidialog.
   - Umschaltung zwischen **Original Cardputer** (GPIO-Matrix) und **Cardputer ADV** (TCA8418 I²C-Controller).
 
+### Bruce Firmware Live-Ausführung (ESP32-S3 QEMU)
+
+Der Emulator führt echten ESP32-S3-Maschinencode (z. B. Bruce 1.8) über das integrierte QEMU-Modell aus und leitet die SPI-Daten direkt an das emulierte ST7789-IPS-Display weiter:
+
+| 1. Boot-Logo & Initialisierung | 2. Hauptmenü (WiFi) | 3. Live-Navigation (BLE) |
+| :---: | :---: | :---: |
+| <img src="./assets/bruce-boot.png" alt="Bruce Firmware Boot Logo auf M5Cardputer" width="220"> | <img src="./assets/bruce-menu.png" alt="Bruce Firmware Hauptmenü WiFi" width="220"> | <img src="./assets/bruce-ble.png" alt="Bruce Firmware Navigation BLE" width="220"> |
+| *Live-Ausführung von `bruce.bin`* | *M5GFX-Menüausgabe im ST7789-Display* | *Navigiert über Pfeiltastenmatrix* |
+
 ---
 
 ## 2. Hardware-Status: Unterstützt vs. Ausstehend
 
-| Hardware-Komponente | Status | Implementierungsdetails |
-| :--- | :---: | :--- |
-| **ST7789V2 Display (240×135)** | ✅ **Simuliert** | RGB565, Controller-RAM und ausgewählte ST7789-Befehle, GPU Nearest-Neighbor |
-| **56-Tasten-Tastatur** | ✅ **Vollständig** | 4×14 Matrix, Host-Keyboard-Mapping, Klickflächen, Modifier |
-| **G0-Taster (BtnG0)** | ✅ **Vollständig** | Klickbar, Download/Action-Button der Firmware |
-| **MicroSD-Slot** | ✅ **Vollständig** | Lokaler Sandboxed Ordner, Traversal-Protection |
-| **System-Uhr & Timer** | ✅ **Vollständig** | Monotone `millis()`, `micros()`, Frame-Delta `dt` |
-| **Akku / Power-Status** | ✅ **Simuliert** | Spannung (mV), Prozentwert, Ladeerkennung |
-| **NS4168 1W Lautsprecher** | ⚠️ **Vorbereitet** | HAL-Audio-Stubs vorhanden, DSP/Tone-Erweiterung möglich |
-| **SPM1423 PDM Mikrofon** | ⚠️ **Vorbereitet** | Virtuelle Audiopuffer-Schnittstelle vorbereitet |
-| **Wi-Fi / ESP-NOW / BLE** | ❌ **Nicht implementiert** | Wird im UI explizit als nicht unterstützt deklariert |
-| **Grove HY2.0-4P / GPIOs** | ❌ **Nicht implementiert** | Externe Hardware-Pins nicht simuliert |
+Die drei Laufzeitprofile haben unterschiedliche Hardwarepfade. Ein sichtbares Funkmenü bedeutet keine funktionierende Funkhardware.
+
+| Komponente | Native ADV Factory / Rust Demo | ESP32 Binary (QEMU) |
+| :--- | :--- | :--- |
+| ST7789V2, 240 × 135 | Controller-Befehlssatz und RGB565 | GPSPI-/DMA-Daten an denselben Controller |
+| Tastatur / G0 | Matrix und native ADV-Anbindung | Original-Cardputer-GPIO-Matrix und G0 |
+| CPU / Zeit | Native Logik, virtuelle Zeit | ESP32-S3-Xtensa-Code und QEMU-Timer |
+| Helligkeit / Akku | Simulierte Werte | LEDC-Helligkeit, synthetischer ADC-Akkuwert |
+| MicroSD | Lokale SD-Sandbox | Noch nicht angebunden |
+| Audio / Mikrofon | Stubs bzw. synthetische ADV-Eingaben | Noch nicht vollständig emuliert |
+| Wi-Fi / ESP-NOW / BLE | Keine Host-Funkverbindung; ADV-Testzustände | Keine funktionsfähige Funkemulation |
+| Grove / externe Module | Nicht implementiert | Nicht implementiert |
+| ADV-TCA8418 in Binärfirmware | Nativer ADV-Port unterstützt | Noch nicht modelliert |
+
+Hardwareabhängige Firmware-Funktionen können in QEMU fehlschlagen oder warten. Die geprüfte Kompatibilität umfasst Bruce 1.8 beim Booten und der Menübedienung, nicht sämtliche Bruce-Funktionen.
 
 ---
 
@@ -94,6 +105,17 @@ cargo run -p m5fxx-desktop
 cargo run --release -p m5fxx-desktop
 ```
 
+### ESP32-Binärfirmware starten
+
+Einmalig den angepassten öffentlichen QEMU bauen:
+
+```bash
+./tools/qemu/build.sh
+cargo run -p m5fxx-desktop
+```
+
+Dann ein **zusammengeführtes ESP32-S3-`.bin`-Image** auf das Fenster ziehen oder im Developer Panel auswählen. Nach dem Import startet **ESP32 Binary** automatisch. Einzelne App-Images, `.hex` und `.elf` werden nicht unterstützt. Build-Abhängigkeiten und Fehlerhilfe: [QEMU-Setup](tools/qemu/README.md). Architektur und Grenzen: [ESP32-Emulation](docs/esp32-emulation.md).
+
 ### Bedienung der Geräteansicht
 
 Die Standardansicht zeigt das vollständige Gerät mit dem laufenden Firmware-Display. Klicke auf eine Tastenkappe oder verwende die Host-Tastatur zur Eingabe; der kleine **G0**-Taster unter der Gerätebeschriftung ist ebenfalls bedienbar.
@@ -111,9 +133,12 @@ m5fxx/
 ├── assets/                  # Hero Banner & Ressourcen
 ├── crates/
 │   ├── m5fxx-core/          # Hardware Abstraction Layer, RGB565, Input & SD Sandbox
+│   ├── m5fxx-esp32/         # QEMU-Prozess, Flash-Import und LCD-/Tastenbrücke
 │   ├── m5fxx-factory/       # Nativer C/C++-Port der ADV-Werksfirmware
 │   ├── m5fxx-app-demo/      # Hardware-agnostische Beispielanwendung (Firmware)
 │   └── m5fxx-desktop/       # eframe/egui GUI Desktop-Simulator
+├── tools/qemu/              # Reproduzierbarer öffentlicher QEMU-Build und Board-Modell
+├── docs/                    # Emulationsdetails und Mockups
 ├── include/
 │   └── m5fxx_abi.h          # C-ABI Header für native C/C++ Firmware-Integration
 ├── Cargo.toml               # Workspace Konfiguration
@@ -122,7 +147,7 @@ m5fxx/
 
 ### Originale ADV-Werksfirmware
 
-`m5fxx-factory` kompiliert die originalen C/C++-Anwendungen und M5GFX nativ. Dazu wird ein C/C++17-Compiler benötigt (macOS: Xcode Command Line Tools). Die Firmware läuft mit virtueller Zeit und simulierten Peripheriegeräten; ESP32-Binärdateien werden nicht ausgeführt. Drag-and-Drop bleibt eine Flash-Animation im Rust-Demo-Profil.
+`m5fxx-factory` kompiliert die originalen C/C++-Anwendungen und M5GFX nativ. Dazu wird ein C/C++17-Compiler benötigt (macOS: Xcode Command Line Tools). Dieses Profil führt die Werksfirmware nativ mit virtueller Zeit und simulierten Peripheriegeräten aus. Das separate Profil **ESP32 Binary** führt importierten ESP32-S3-Maschinencode in QEMU aus.
 
 Das Developer Panel bietet Neustart, Display-Zustände, Helligkeit und simulierte Eingaben. Die Zoomansicht verwendet ganzzahlige **Monitorpixel**, auch auf HiDPI-Displays. Die vollständige Geräteansicht skaliert dagegen zusammen mit dem Gehäuse.
 
@@ -151,9 +176,11 @@ Für bestehende Arduino- oder ESP-IDF-Codebasen liegt der schlanke C-Header [`in
 | Betriebssystem | Architektur | Status | Build-Kommando |
 | :--- | :--- | :---: | :--- |
 | **macOS** | Apple Silicon (M1–M4) | ✅ Verifiziert | `cargo build --release -p m5fxx-desktop` |
-| **macOS** | Intel x86_64 | ✅ Verifiziert | `cargo build --release -p m5fxx-desktop` |
+| **macOS** | Intel x86_64 | Quellcode-kompatibel, QEMU-Pfad nicht verifiziert | `cargo build --release -p m5fxx-desktop` |
 | **Linux** | Ubuntu, Debian, Fedora, Arch | 🐧 Quellcode-kompatibel | `cargo build --release -p m5fxx-desktop` |
 | **Windows** | x86_64 MSVC | 🪟 Quellcode-kompatibel | `cargo build --release -p m5fxx-desktop` |
+
+Der neue QEMU-Firmwarepfad wurde auf **macOS Apple Silicon** geprüft. Andere Plattformen sind für diesen Pfad noch nicht verifiziert.
 
 ### Linux Abhängigkeiten (Ubuntu/Debian)
 ```bash
@@ -178,4 +205,4 @@ cargo fmt --all -- --check
 
 ## Lizenz
 
-Die eingebundenen Drittanbieterquellen behalten ihre jeweiligen Lizenzen und Copyright-Hinweise; siehe [vendor/README.md](vendor/README.md).
+Die eingebundenen Drittanbieterquellen behalten ihre jeweiligen Lizenzen und Copyright-Hinweise; siehe [vendor/README.md](vendor/README.md). Der separate QEMU-Build und das Cardputer-Board-Modell stehen unter GPL-2.0-or-later; siehe [QEMU-Setup](tools/qemu/README.md).

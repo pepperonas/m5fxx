@@ -16,6 +16,7 @@ pub struct DevPanelState {
     pub last_fps_time: std::time::Instant,
     pub installed_firmwares: Vec<String>,
     pub boot_firmware_requested: Option<String>,
+    pub firmware_import_requested: Option<(String, Vec<u8>)>,
 }
 
 impl Default for DevPanelState {
@@ -29,6 +30,7 @@ impl Default for DevPanelState {
             last_fps_time: std::time::Instant::now(),
             installed_firmwares: Vec::new(),
             boot_firmware_requested: None,
+            firmware_import_requested: None,
         }
     }
 }
@@ -52,6 +54,7 @@ pub fn render_dev_panel(
     app: &mut DemoApp,
     display_only_mode: &mut bool,
     factory_active: bool,
+    binary_active: bool,
 ) {
     ui.heading("Cardputer Simulator Controls");
     ui.separator();
@@ -73,7 +76,7 @@ pub fn render_dev_panel(
         }
 
         if ui.button("🔄 Reset App").clicked() {
-            if factory_active {
+            if factory_active || binary_active {
                 dev_state.factory_reset_requested = true;
             } else {
                 app.reset();
@@ -99,7 +102,7 @@ pub fn render_dev_panel(
     CollapsingHeader::new("Hardware Profile & Features")
         .default_open(true)
         .show(ui, |ui| {
-            ui.add_enabled_ui(!factory_active, |ui| {
+            ui.add_enabled_ui(!factory_active && !binary_active, |ui| {
                 ui.horizontal(|ui| {
                     ui.label("Cardputer Model:");
                     if ui
@@ -241,31 +244,31 @@ pub fn render_dev_panel(
     CollapsingHeader::new("Firmware Flasher & Drag-and-Drop")
         .default_open(true)
         .show(ui, |ui| {
-            ui.label("Drop .bin / .hex firmware files or select below to flash and boot into the runtime.");
+            ui.label("Merged ESP32-S3 .bin images run through Cardputer QEMU. ADV Factory runs the native factory port.");
             ui.add_space(4.0);
 
             if ui.button("📂 Select Firmware File (.bin)...").clicked() {
                 if let Some(file_path) = rfd::FileDialog::new()
-                    .add_filter("Firmware Binaries", &["bin", "hex", "elf"])
+                    .add_filter("Merged ESP32-S3 image", &["bin"])
                     .pick_file()
                 {
                     let name = file_path
                         .file_name()
                         .map(|n| n.to_string_lossy().to_string())
                         .unwrap_or_else(|| "firmware.bin".to_string());
-                    let size = std::fs::metadata(&file_path).map(|m| m.len() as usize).unwrap_or(0);
-                    hal.log(format!("Selected firmware file: {} ({} bytes)", name, size));
-                    if !dev_state.installed_firmwares.contains(&name) {
-                        dev_state.installed_firmwares.push(name.clone());
+                    match std::fs::read(&file_path) {
+                        Ok(bytes) if bytes.len() <= 16 * 1024 * 1024 => {
+                            dev_state.firmware_import_requested = Some((name, bytes));
+                        }
+                        Ok(_) => hal.log("Firmware rejected: image larger than 16 MiB"),
+                        Err(error) => hal.log(format!("Cannot read firmware: {error}")),
                     }
-                    dev_state.boot_firmware_requested = Some(name.clone());
-                    app.trigger_firmware_flash(name, size);
                 }
             }
 
             if !dev_state.installed_firmwares.is_empty() {
                 ui.add_space(4.0);
-                ui.label("Recently installed firmwares (click to boot):");
+                ui.label("Recent firmware images (click to boot):");
                 let mut flash_target = None;
                 for fw in &dev_state.installed_firmwares {
                     ui.horizontal(|ui| {
@@ -277,7 +280,7 @@ pub fn render_dev_panel(
                 if let Some(target) = flash_target {
                     hal.log(format!("Booting firmware: {}", target));
                     dev_state.boot_firmware_requested = Some(target.clone());
-                    app.trigger_firmware_flash(target, 0);
+
                 }
             }
         });

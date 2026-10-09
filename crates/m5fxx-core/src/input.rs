@@ -440,6 +440,8 @@ pub struct CardputerInputState {
 
     // Events queued since last poll
     pub recent_chars: Vec<char>,
+    /// Raw press/release transitions, including taps completed within one GUI frame.
+    pub recent_matrix_events: Vec<(KeyCoord, bool)>,
     pub recent_keys: Vec<CardputerKey>,
     pub changed: bool,
 }
@@ -451,6 +453,10 @@ impl CardputerInputState {
 
     /// Reset all pressed keys (e.g. on window blur/focus loss to prevent stuck keys)
     pub fn reset_all(&mut self) {
+        let mut released: Vec<_> = self.pressed_matrix_keys.iter().copied().collect();
+        released.sort_by_key(|c| (c.row, c.col));
+        self.recent_matrix_events
+            .extend(released.into_iter().map(|c| (c, false)));
         self.pressed_matrix_keys.clear();
         self.btn_g0_pressed = false;
         self.btn_rst_pressed = false;
@@ -472,6 +478,7 @@ impl CardputerInputState {
             return; // Already pressed
         }
         self.changed = true;
+        self.recent_matrix_events.push((coord, true));
 
         if let Some(key) = override_key {
             self.recent_keys.push(key);
@@ -586,6 +593,7 @@ impl CardputerInputState {
     pub fn release_key(&mut self, row: u8, col: u8) {
         let coord = KeyCoord::new(row, col);
         if self.pressed_matrix_keys.remove(&coord) {
+            self.recent_matrix_events.push((coord, false));
             self.changed = true;
             match (row, col) {
                 (2, 0) => self.fn_active = false,
@@ -630,6 +638,10 @@ impl CardputerInputState {
 
     pub fn is_key_pressed(&self, row: u8, col: u8) -> bool {
         self.pressed_matrix_keys.contains(&KeyCoord::new(row, col))
+    }
+
+    pub fn take_matrix_events(&mut self) -> Vec<(KeyCoord, bool)> {
+        std::mem::take(&mut self.recent_matrix_events)
     }
 
     /// Pulls recent characters, clearing the queue

@@ -42,8 +42,8 @@ void Launcher::render_system_bar()
     if (GetHAL().isTimeSynced()) {
         static time_t now;
         static struct tm timeinfo;
-        time(&now);
-        localtime_r(&now, &timeinfo);
+        GetHAL().getWallTime(&now);
+        timeinfo = *gmtime(&now);
         _data.system_state.time = fmt::format("{:02d}:{:02d} UTC", timeinfo.tm_hour, timeinfo.tm_min);
     } else {
         uint32_t mins = GetHAL().millis() / 60000;

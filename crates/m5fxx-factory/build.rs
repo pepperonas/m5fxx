@@ -47,6 +47,10 @@ fn main() {
     ] {
         files.push(vendor.join("M5GFX/src").join(p));
     }
+    sources(
+        &vendor.join("cardputer-adv/main/apps/utils/raylib"),
+        &mut files,
+    );
     files.push(PathBuf::from("native/adapter.cpp"));
     files.push(PathBuf::from("native/key_conversion.cpp"));
     files.push(vendor.join("cardputer-adv/main/hal/cap_lora868/TinyGPSPlus/TinyGPS++.cpp"));
@@ -82,7 +86,8 @@ fn main() {
     }
     b.compile("m5fxx_factory");
     let mut c = cc::Build::new();
-    c.warnings(false)
+    c.flag_if_supported("-mmacosx-version-min=11.0")
+        .warnings(false)
         .define("M5FXX_NATIVE", None)
         .include("native")
         .include(vendor.join("M5GFX/src"));
@@ -95,18 +100,11 @@ fn main() {
     ] {
         c.file(vendor.join("M5GFX/src/lgfx/utility").join(f));
     }
-    for f in [
-        "efont/lgfx_efont_cn.c",
-        "efont/lgfx_efont_ja.c",
-        "efont/lgfx_efont_kr.c",
-        "efont/lgfx_efont_tw.c",
-        "IPA/lgfx_font_japan.c",
-    ] {
-        c.file(vendor.join("M5GFX/src/lgfx/Fonts").join(f));
-    }
+    c.file(vendor.join("M5GFX/src/lgfx/Fonts/efont/lgfx_efont_cn.c"));
     c.compile("m5fxx_fonts");
     let mut pika = cc::Build::new();
-    pika.warnings(false);
+    pika.flag_if_supported("-mmacosx-version-min=11.0")
+        .warnings(false);
     for p in ["pikascript-api", "pikascript-core"] {
         pika.include(
             vendor

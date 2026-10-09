@@ -2,3 +2,5 @@
 Cargo.lock
 virtual_sd/
 .DS_Store
+
+/tools/qemu/bin/

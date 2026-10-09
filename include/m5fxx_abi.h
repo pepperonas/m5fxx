@@ -57,7 +57,7 @@ typedef struct {
 
 /* Host / Simulator HAL Services (Imported by Firmware) */
 typedef struct {
-    /* Direct pointer to the 240x135 RGB565 framebuffer (51,840 bytes) */
+    /* Direct pointer to the 240x135 RGB565 framebuffer (64,800 bytes) */
     uint16_t* (*get_framebuffer)(void);
 
     /* Mark display dirty to trigger texture upload */
@@ -73,6 +73,22 @@ typedef struct {
     /* Logging */
     void (*log)(const char* msg);
 } m5fxx_host_services_t;
+
+/* Native ADV factory port (one instance per process; callbacks run on its worker). */
+typedef struct {
+    float accel[3];
+    float gyro[3];
+    float audio_amplitude;
+    uint64_t sd_bytes;
+    uint8_t battery, wifi, ble, usb, sd, cap;
+} m5fxx_simulation_inputs_t;
+void m5fxx_factory_init(void);
+void m5fxx_factory_step(uint32_t elapsed_ms, uint16_t* out_rgb565, uint8_t* brightness);
+void m5fxx_factory_key(uint8_t row, uint8_t col, bool pressed);
+void m5fxx_factory_home(bool pressed);
+void m5fxx_factory_inputs(const m5fxx_simulation_inputs_t* inputs);
+void m5fxx_factory_sd_root(const char* canonical_root);
+void m5fxx_factory_shutdown(void);
 
 #ifdef __cplusplus
 }

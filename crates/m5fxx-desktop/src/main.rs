@@ -21,6 +21,10 @@ pub struct CardputerSimulatorApp {
     hal: CardputerHal,
     factory: m5fxx_factory::FactoryFirmware,
     factory_mode: bool,
+    binary_mode: bool,
+    esp32: Option<m5fxx_esp32::Esp32Firmware>,
+    pending_image: Option<Vec<u8>>,
+    firmware_images: std::collections::HashMap<String, Vec<u8>>,
     factory_inputs: m5fxx_factory::SimulationInputs,
     panel: m5fxx_core::st7789::St7789,
     factory_frame: m5fxx_core::DisplayBuffer,
@@ -64,6 +68,10 @@ impl CardputerSimulatorApp {
         Self {
             factory: m5fxx_factory::FactoryFirmware::default(),
             factory_mode: true,
+            binary_mode: false,
+            esp32: None,
+            pending_image: None,
+            firmware_images: Default::default(),
             factory_inputs,
             panel,
             factory_frame: Default::default(),
@@ -236,7 +244,7 @@ impl CardputerSimulatorApp {
                     for c in txt.chars() {
                         if c >= ' ' && c != '\x7F' {
                             if let Some(coord) = keyboard_mapping::char_to_matrix(c) {
-                                if self.factory_mode
+                                if (self.factory_mode || self.binary_mode)
                                     && self.hal.input.is_key_pressed(coord.row, coord.col)
                                 {
                                     continue;
@@ -269,26 +277,89 @@ impl CardputerSimulatorApp {
                 "firmware.bin".to_string()
             };
 
-            let file_size = if let Some(bytes) = &file.bytes {
-                bytes.len()
+            let bytes = if let Some(bytes) = &file.bytes {
+                Ok(bytes.to_vec())
             } else if let Some(path) = &file.path {
-                std::fs::metadata(path)
-                    .map(|m| m.len() as usize)
-                    .unwrap_or(0)
+                std::fs::read(path)
             } else {
-                0
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Drop has no file contents",
+                ))
             };
-
-            self.hal.log(format!(
-                "Drag & Drop: Flashing '{}' ({} bytes)",
-                file_name, file_size
-            ));
-            if !self.dev_state.installed_firmwares.contains(&file_name) {
-                self.dev_state.installed_firmwares.push(file_name.clone());
+            match bytes {
+                Ok(bytes) if bytes.len() <= 16 * 1024 * 1024 => {
+                    self.dev_state.firmware_import_requested = Some((file_name, bytes));
+                }
+                Ok(_) => self.hal.log("Firmware rejected: image larger than 16 MiB"),
+                Err(error) => self
+                    .hal
+                    .log(format!("Cannot read dropped firmware: {error}")),
             }
-            self.dev_state.boot_firmware_requested = Some(file_name.clone());
-            self.factory_mode = false;
-            self.app.trigger_firmware_flash(file_name, file_size);
+        }
+    }
+
+    fn import_firmware(&mut self, name: String, bytes: Vec<u8>) {
+        if let Err(error) = m5fxx_esp32::prepare_flash(&bytes) {
+            self.hal.log(format!("Firmware rejected: {error}"));
+            return;
+        }
+        self.esp32 = None;
+        self.factory_mode = false;
+        self.binary_mode = true;
+        self.dev_state.is_paused = false;
+        self.hal.input.reset_all();
+        self.pending_image = Some(bytes.clone());
+        if !self.dev_state.installed_firmwares.contains(&name) {
+            self.dev_state.installed_firmwares.push(name.clone());
+        }
+        self.firmware_images.insert(name.clone(), bytes.clone());
+        self.app.trigger_firmware_flash(name, bytes.len());
+        self.hal
+            .log("Merged image accepted; ESP32-S3 execution will start after import");
+    }
+
+    fn update_binary(&mut self, dt: f32) {
+        self.hal.status.model = m5fxx_core::CardputerModel::CardputerOriginal;
+        if let Some(cpu) = &mut self.esp32 {
+            for (coord, pressed) in self.hal.input.take_matrix_events() {
+                if let Err(error) = cpu.key(coord.row, coord.col, pressed) {
+                    self.hal.log(error.to_string());
+                }
+            }
+            let _ = cpu.home(self.hal.input.btn_g0_pressed);
+            self.hal.input.take_chars();
+            self.hal.input.take_keys();
+            if let Err(error) = cpu.poll(&mut self.hal.display) {
+                self.hal.log(error.to_string());
+            }
+        } else {
+            self.hal.input.take_matrix_events();
+            self.app.update(&mut self.hal, dt);
+            if self.app.screen == m5fxx_app_demo::AppScreen::LoadedFirmware {
+                if let Some(bytes) = self.pending_image.take() {
+                    match m5fxx_esp32::Esp32Firmware::start(&bytes) {
+                        Ok(cpu) => {
+                            self.hal.display.clear(m5fxx_core::Color565::BLACK);
+                            self.hal.display.draw_string(
+                                5,
+                                10,
+                                "ESP32-S3 CPU booting...",
+                                m5fxx_core::Color565::WHITE,
+                                None,
+                                1,
+                            );
+                            self.esp32 = Some(cpu);
+                        }
+                        Err(error) => {
+                            self.app.fw_log_lines =
+                                vec!["Emulator could not start".into(), error.to_string()];
+                            self.app.render(&mut self.hal);
+                            self.hal.log(format!("Emulator startup failed: {error}"));
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -298,6 +369,11 @@ impl CardputerSimulatorApp {
             self.hal.display.to_rgba8888(&mut self.rgba_buffer);
             let brightness = if self.factory_mode {
                 self.factory.brightness as u16 * self.panel.brightness as u16 / 255
+            } else if self.binary_mode {
+                self.esp32
+                    .as_ref()
+                    .map(|cpu| cpu.panel.brightness as u16)
+                    .unwrap_or(255)
             } else {
                 255
             };
@@ -338,11 +414,27 @@ impl eframe::App for CardputerSimulatorApp {
         self.dev_state.update_fps();
         self.handle_drag_and_drop(ctx);
         self.handle_host_input(ctx);
+        if let Some(name) = self.dev_state.boot_firmware_requested.take() {
+            if let Some(bytes) = self.firmware_images.get(&name) {
+                self.dev_state.firmware_import_requested = Some((name, bytes.clone()));
+            }
+        }
+        if let Some((name, bytes)) = self.dev_state.firmware_import_requested.take() {
+            self.import_firmware(name, bytes);
+        }
 
         // Advance simulation tick if not paused
         let dt = self.hal.update();
+        if let Some(cpu) = &mut self.esp32 {
+            if let Err(error) = cpu.set_paused(!self.binary_mode || self.dev_state.is_paused) {
+                self.hal.log(error.to_string());
+            }
+        }
+
         if !self.dev_state.is_paused {
-            if self.factory_mode {
+            if self.binary_mode {
+                self.update_binary(dt);
+            } else if self.factory_mode {
                 self.hal.status.model = m5fxx_core::CardputerModel::CardputerAdv;
                 for (coord, pressed) in self.hal.input.take_matrix_events() {
                     self.factory.key(coord.row, coord.col, pressed);
@@ -372,21 +464,6 @@ impl eframe::App for CardputerSimulatorApp {
             } else {
                 self.hal.input.take_matrix_events();
                 self.app.update(&mut self.hal, dt);
-
-                // If flashing just completed and the flashed image is the factory firmware, switch to factory mode!
-                if self.app.screen == m5fxx_app_demo::AppScreen::LoadedFirmware {
-                    if let Some(target) = &self.dev_state.boot_firmware_requested {
-                        let lower = target.to_lowercase();
-                        if lower.contains("factory")
-                            || lower.contains("cardputer-adv")
-                            || lower.contains("m5stack")
-                        {
-                            self.factory_mode = true;
-                            self.factory.reset();
-                            self.dev_state.boot_firmware_requested = None;
-                        }
-                    }
-                }
             }
         }
 
@@ -403,8 +480,30 @@ impl eframe::App for CardputerSimulatorApp {
         egui::TopBottomPanel::top("top_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("m5fxx - M5Stack Cardputer Simulator");
-                ui.selectable_value(&mut self.factory_mode, true, "ADV Factory");
-                ui.selectable_value(&mut self.factory_mode, false, "Rust Demo");
+                if ui
+                    .selectable_label(self.factory_mode && !self.binary_mode, "ADV Factory")
+                    .clicked()
+                {
+                    self.factory_mode = true;
+                    self.binary_mode = false;
+                }
+                if ui
+                    .selectable_label(!self.factory_mode && !self.binary_mode, "Rust Demo")
+                    .clicked()
+                {
+                    self.factory_mode = false;
+                    self.binary_mode = false;
+                }
+                if ui
+                    .add_enabled(
+                        self.esp32.is_some(),
+                        egui::Button::new("ESP32 Binary").selected(self.binary_mode),
+                    )
+                    .clicked()
+                {
+                    self.factory_mode = false;
+                    self.binary_mode = true;
+                }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui
                         .selectable_label(self.show_dev_panel, "🛠 Developer Panel")
@@ -430,7 +529,27 @@ impl eframe::App for CardputerSimulatorApp {
                 .min_width(260.0)
                 .show(ctx, |ui| {
                     egui::ScrollArea::vertical().show(ui, |ui| {
-                        if self.factory_mode {
+                        if self.binary_mode {
+                            ui.heading("ESP32-S3 binary execution");
+                            if let Some(cpu) = &mut self.esp32 {
+                                ui.label(&cpu.status);
+                                if ui.button("Restart binary firmware").clicked() {
+                                    if let Err(error) = cpu.reset() {
+                                        self.hal.log(error.to_string());
+                                    }
+                                }
+                                egui::CollapsingHeader::new("Actual UART / emulator log").show(
+                                    ui,
+                                    |ui| {
+                                        for line in &cpu.logs {
+                                            ui.monospace(line);
+                                        }
+                                    },
+                                );
+                            } else {
+                                ui.label("Preparing merged flash image");
+                            }
+                        } else if self.factory_mode {
                             self.factory_controls(ui);
                         }
                         render_dev_panel(
@@ -440,9 +559,16 @@ impl eframe::App for CardputerSimulatorApp {
                             &mut self.app,
                             &mut self.display_only_mode,
                             self.factory_mode,
+                            self.binary_mode,
                         );
                         if std::mem::take(&mut self.dev_state.factory_reset_requested) {
-                            self.factory.reset();
+                            if self.binary_mode {
+                                if let Some(cpu) = &mut self.esp32 {
+                                    let _ = cpu.reset();
+                                }
+                            } else {
+                                self.factory.reset();
+                            }
                         }
                     });
                 });
@@ -522,7 +648,7 @@ impl eframe::App for CardputerSimulatorApp {
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_else(|| "firmware.bin".to_string());
 
-                let text = format!("⚡ Drop '{}' to Flash Firmware", first_file);
+                let text = format!("Drop '{}' to boot ESP32-S3 firmware", first_file);
                 painter.text(
                     available_rect.center(),
                     egui::Align2::CENTER_CENTER,

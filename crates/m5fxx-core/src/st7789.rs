@@ -54,11 +54,32 @@ impl St7789 {
     pub fn data(&mut self, bytes: &[u8]) {
         for &byte in bytes {
             if self.command == 0x2c || self.command == 0x3c {
-                if self.colmod & 7 != 5 {
-                    continue;
-                }
-                if let Some(high) = self.high_byte.take() {
-                    let mut color = Color565(u16::from_be_bytes([high, byte]));
+                let color = match self.colmod & 7 {
+                    5 => {
+                        if let Some(high) = self.high_byte.take() {
+                            Some(Color565(u16::from_be_bytes([high, byte])))
+                        } else {
+                            self.high_byte = Some(byte);
+                            None
+                        }
+                    }
+                    6 => {
+                        self.parameters.push(byte);
+                        if self.parameters.len() == 3 {
+                            let color = Color565::from_rgb888(
+                                self.parameters[0] & 0xfc,
+                                self.parameters[1] & 0xfc,
+                                self.parameters[2] & 0xfc,
+                            );
+                            self.parameters.clear();
+                            Some(color)
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                };
+                if let Some(mut color) = color {
                     if self.madctl & 8 != 0 {
                         color = Color565(
                             (color.0 & 0x07e0) | ((color.0 & 31) << 11) | ((color.0 >> 11) & 31),
@@ -68,13 +89,14 @@ impl St7789 {
                     if self.madctl & 0x20 != 0 {
                         std::mem::swap(&mut x, &mut y);
                     }
+                    let valid = x < 240 && y < 320;
                     if self.madctl & 0x40 != 0 {
                         x = 239usize.saturating_sub(x);
                     }
                     if self.madctl & 0x80 != 0 {
                         y = 319usize.saturating_sub(y);
                     }
-                    if x < 240 && y < 320 {
+                    if valid {
                         self.ram[y * 240 + x] = color;
                     }
                     if self.cursor.0 < self.window[1] {
@@ -87,8 +109,6 @@ impl St7789 {
                             self.cursor.1 = self.window[2];
                         }
                     }
-                } else {
-                    self.high_byte = Some(byte);
                 }
             } else {
                 self.parameters.push(byte);

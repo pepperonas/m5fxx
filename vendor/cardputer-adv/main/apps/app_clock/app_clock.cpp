@@ -74,8 +74,8 @@ void AppClock::show_network_time()
     // Get current time from system (assuming SNTP has synchronized it when WiFi was connected)
     time_t now;
     struct tm timeinfo;
-    time(&now);
-    localtime_r(&now, &timeinfo);
+    GetHAL().getWallTime(&now);
+    timeinfo = *gmtime(&now);
 
     GetHAL().canvas.fillScreen(THEME_COLOR_BG);
 
