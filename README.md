@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./assets/m5fxx-banner.jpg" alt="m5fxx - M5Stack Cardputer Simulator Banner" width="100%">
+<img src="./assets/m5fxx-banner.jpg" alt="m5fxx – Comic-Thumbnail: Ein M5Stack Cardputer springt aus dem Desktop-Simulator" width="100%">
 
 # m5fxx — M5Stack Cardputer Desktop Simulator
 
