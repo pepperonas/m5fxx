@@ -1,0 +1,17 @@
+[package]
+name = "m5fxx-desktop"
+version = "0.1.0"
+edition = "2021"
+description = "Cross-platform M5Stack Cardputer desktop simulator in Rust using eframe/egui"
+
+[dependencies]
+m5fxx-core = { path = "../m5fxx-core" }
+m5fxx-app-demo = { path = "../m5fxx-app-demo" }
+eframe = "0.31"
+egui = "0.31"
+rfd = "0.15"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[[bin]]
+name = "m5fxx"
+path = "src/main.rs"

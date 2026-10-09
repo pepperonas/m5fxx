@@ -1,0 +1,8 @@
+[package]
+name = "m5fxx-app-demo"
+version = "0.1.0"
+edition = "2021"
+description = "Hardware-agnostic demo firmware application for M5Stack Cardputer"
+
+[dependencies]
+m5fxx-core = { path = "../m5fxx-core" }

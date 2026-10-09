@@ -1,0 +1,7 @@
+[package]
+name = "m5fxx-core"
+version = "0.1.0"
+edition = "2021"
+description = "Hardware Abstraction Layer and core types for M5Stack Cardputer"
+
+[dependencies]
