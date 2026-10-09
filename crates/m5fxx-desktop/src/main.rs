@@ -76,6 +76,52 @@ impl CardputerSimulatorApp {
             }
         }
 
+        // Synchronize host modifier keys (Shift, Ctrl, Alt) with Cardputer matrix keys
+        // Shift is at matrix (2, 1), Ctrl is at (3, 0), Alt is at (3, 2)
+        let host_modifiers = ctx.input(|i| i.modifiers);
+        let shift_coord = KeyCoord::new(2, 1);
+        let ctrl_coord = KeyCoord::new(3, 0);
+        let alt_coord = KeyCoord::new(3, 2);
+
+        if host_modifiers.shift
+            && !self
+                .hal
+                .input
+                .is_key_pressed(shift_coord.row, shift_coord.col)
+        {
+            self.hal.input.press_key(shift_coord.row, shift_coord.col);
+        } else if !host_modifiers.shift
+            && self
+                .hal
+                .input
+                .is_key_pressed(shift_coord.row, shift_coord.col)
+        {
+            self.hal.input.release_key(shift_coord.row, shift_coord.col);
+        }
+
+        if host_modifiers.ctrl
+            && !self
+                .hal
+                .input
+                .is_key_pressed(ctrl_coord.row, ctrl_coord.col)
+        {
+            self.hal.input.press_key(ctrl_coord.row, ctrl_coord.col);
+        } else if !host_modifiers.ctrl
+            && self
+                .hal
+                .input
+                .is_key_pressed(ctrl_coord.row, ctrl_coord.col)
+        {
+            self.hal.input.release_key(ctrl_coord.row, ctrl_coord.col);
+        }
+
+        if host_modifiers.alt && !self.hal.input.is_key_pressed(alt_coord.row, alt_coord.col) {
+            self.hal.input.press_key(alt_coord.row, alt_coord.col);
+        } else if !host_modifiers.alt && self.hal.input.is_key_pressed(alt_coord.row, alt_coord.col)
+        {
+            self.hal.input.release_key(alt_coord.row, alt_coord.col);
+        }
+
         // Process raw host keyboard events
         let events = ctx.input(|i| i.events.clone());
         for ev in events {

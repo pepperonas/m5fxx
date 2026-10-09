@@ -41,7 +41,8 @@ pub fn host_key_to_matrix(key: Key) -> Option<KeyCoord> {
         Key::Backslash => Some(KeyCoord::new(1, 13)),
 
         // Row 2: Fn Shift A S D F G H J K L ; ' Enter
-        // Note: Fn can be mapped to F1 or host Escape, Shift to host Shift
+        Key::F1 => Some(KeyCoord::new(2, 0)), // Fn key mapped to F1
+        Key::F24 => Some(KeyCoord::new(2, 0)), // Host Fn key (on some keyboards reporting as F24)
         Key::A => Some(KeyCoord::new(2, 2)),
         Key::S => Some(KeyCoord::new(2, 3)),
         Key::D => Some(KeyCoord::new(2, 4)),
@@ -157,6 +158,7 @@ mod tests {
         assert_eq!(host_key_to_matrix(Key::A), Some(KeyCoord::new(2, 2)));
         assert_eq!(host_key_to_matrix(Key::Space), Some(KeyCoord::new(3, 13)));
         assert_eq!(host_key_to_matrix(Key::ArrowUp), Some(KeyCoord::new(2, 11)));
+        assert_eq!(host_key_to_matrix(Key::F1), Some(KeyCoord::new(2, 0))); // Cardputer Fn key
         assert_eq!(char_to_matrix('q'), Some(KeyCoord::new(1, 1)));
         assert_eq!(char_to_matrix('Q'), Some(KeyCoord::new(1, 1)));
     }

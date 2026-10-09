@@ -32,8 +32,11 @@
   - Echte Hardware-Auflösung von 240 × 135 Pixeln mit RGB565-Farbraum.
   - **Nearest-Neighbor GPU-Texturierung:** Absolut scharfe Pixel-Optik ohne verwaschene Filter.
   - **Zoomed Display Only Modus:** Großansicht des reinen Displays mit ganzzahligem Skalierungsfaktor (Integer Scaling).
-- ⌨️ **Vollständige 56-Tasten-Tastatur & Navigation:**
+- ⌨️ **Vollständige 56-Tasten-Tastatur & Modifier-Unterstützung:**
   - Exakte 4×14 Tastenmatrix mit weißen Beschriftungen, orangefarbenen Pfeilsymbolen (`▲`, `▼`, `◄`, `►`) und orangefarbenem `ok ↵` auf der Enter-Taste.
+  - **Funktionierende Modifier (`Shift`, `Ctrl`, `Alt`, `Fn`):**
+    - Physische PC-Modifier (`Shift`, `Ctrl`, `Alt`) werden in Echtzeit auf die Cardputer-Matrix übertragen (`Aa` auf (2, 1), `Ctrl` auf (3, 0), `Alt` auf (3, 2)) und aktivieren die jeweiligen Status-LEDs am Display sowie die Großschreibung.
+    - `Fn`-Taste kann über `F1` (oder Mausklick auf die `Fn`-Taste) aktiviert werden, um die Funktions- und F-Tasten-Ebenen (`F1`..`F12`, `Esc` etc.) zu schalten.
   - **Direkte Host-Navigation:** Pfeiltasten (`ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`), `Enter`, `Esc`, `Tab` und `Backspace` steuern Firmware und Menüs unmittelbar auf der PC-Tastatur (kein umständliches `Fn`-Drücken für Pfeiltasten nötig).
   - Klickbare Tastenkappen mit optischem Leuchteffekt (M5-Orange) bei Druck.
   - Internationales Layout & Unicode-Unterstützung (QWERTZ & QWERTY).
