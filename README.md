@@ -1,141 +1,153 @@
-# m5fxx - M5Stack Cardputer Desktop Simulator
+<div align="center">
 
-Ein plattformübergreifender Desktop-Simulator für M5Stack Cardputer Firmware, geschrieben in **Rust** mit nativer Desktop-Oberfläche (`eframe`/`egui`).
+<img src="./assets/m5fxx-banner.jpg" alt="m5fxx - M5Stack Cardputer Simulator Banner" width="100%">
 
-Der Simulator läuft unter **macOS** (inkl. Apple Silicon & Intel), **Windows** und **Linux** und bildet den M5Stack Cardputer optisch sowie bei der Bedienung pixelgenau und maßstabsgetreu nach.
+# m5fxx — M5Stack Cardputer Desktop Simulator
+
+[![Rust](https://img.shields.io/badge/Rust-1.80+-orange.svg?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
+[![Platform](https://img.shields.io/badge/Platform-macOS%20|%20Linux%20|%20Windows-blue.svg?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/pepperonas/m5fxx)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg?style=for-the-badge&logo=github-actions)](https://github.com/pepperonas/m5fxx)
+[![M5Stack](https://img.shields.io/badge/Hardware-M5Stack%20Cardputer-red.svg?style=for-the-badge)](https://docs.m5stack.com/en/core/Cardputer)
+[![Display](https://img.shields.io/badge/Display-ST7789V2%20240x135%20IPS-yellow.svg?style=for-the-badge)](https://github.com/pepperonas/m5fxx)
+[![Keyboard](https://img.shields.io/badge/Keyboard-56--Key%20Matrix-purple.svg?style=for-the-badge)](https://github.com/pepperonas/m5fxx)
+
+*Ein hochperformanter, plattformübergreifender Desktop-Simulator für M5Stack-Cardputer-Firmware mit nativer Benutzeroberfläche in Rust (`eframe`/`egui`).*
+
+[Features](#1-features--highlights) • [Hardware-Status](#2-hardware-status-unterstützt-vs-ausstehend) • [Schnellstart](#3-schnellstart--terminal-alias) • [Architektur](#4-architektur--firmware-integration) • [Plattformen](#5-plattform-support--builds)
+
+</div>
 
 ---
 
-## 1. Features & Funktionsumfang
+## 1. Features & Highlights
 
-- **Realistische Hardware-Darstellung:**
-  - Originalgetreues Gehäuse mit exakten Abmessungen (84.0 × 54.0 × 19.7 mm nach M5Stack-Spezifikation)
-  - Vektorbasierte, stufenlos skalierbare Darstellung mit Retina-/HiDPI-Unterstützung
-  - ST7789V2 240×135 IPS LCD-Display an exakter Position
-  - Vollständige 56-Tasten-Tastatur (4 Zeilen × 14 Spalten) mit Originalbeschriftungen (Primary, Shift/Aa-Layer und Fn-Layer)
-  - Interaktiver physischer G0-Taster (`BtnG0`) und PWR-Status-LED
-  - Perforiertes Lautsprecher-Gitter und charakteristische Gehäuseschrauben
-- **Display-Pipeline:**
-  - Emulierter RGB565-Framebuffer mit echten ST7789-Farben
-  - Nearest-Neighbor-Skalierung (keine unscharfe Pixelinterpolation)
-  - Umschaltbarer **Zoomed Display Only Modus** (maximale ganzzahlige Pixelskalierung)
-- **Eingabesystem:**
-  - Klickbare virtuelle Tasten mit taktiler Hervorhebung
-  - Volle Unterstützung physischer Host-Tastaturen (DE-QWERTZ, US-QWERTY, Sonderzeichen)
-  - Trennung von Tastenzuständen (`Key-Down` / `Key-Up`) und Texteingabe
-  - Focus-Loss-Schutz: Automatischer Reset aller Tasten bei Fokusverlust (verhindert hängende Tasten)
-  - Maus-Tracking: Sauberes Loslassen bei Klicks außerhalb der Tastenfläche
-- **Simulierte Hardware & Sandboxed SD-Karte:**
-  - MicroSD-Dateisystem auf konfigurierbaren Host-Ordner gemappt
-  - Pfad-Traversal-Schutz gegen Verzeichnis-Ausbrüche (`../` und absolute Pfade blockiert)
-  - Monotone Systemzeit (`millis()`, `micros()`)
-  - Statusanzeigen für Akku (mV, Prozent, Ladezustand)
-  - Umschaltung zwischen **Original Cardputer** (Software-GPIO-Matrix) und **Cardputer ADV** (TCA8418 I²C Keypad Controller)
-- **Entwickler-Panel:**
-  - Simulation Pausieren / Fortsetzen
-  - Firmware- und HAL-Reset
-  - Live-Anzeige gedrückter Matrix-Tasten und aktiver Modifier (`Fn`, `Shift`, `Ctrl`, `Opt`, `Alt`)
-  - SD-Karten-Ordnerauswahl per nativem Datei-Dialog (`rfd`)
-  - Live-Protokollausgabe und FPS-Zähler
+- 🕹️ **Maßstabsgetreues Gehäuse:**
+  - Realistische Vektordarstellung basierend auf den offiziellen M5Stack-Spezifikationen (84.0 × 54.0 × 19.7 mm).
+  - Skalierbar ohne Unschärfe, vollständige Retina- und HiDPI-Unterstützung.
+  - Detailreich mit perforiertem Lautsprechergrille, Schrauben, M5Stack-Branding und interaktivem **BtnG0**-Taster.
+- 📺 **ST7789V2 IPS LCD Emulation:**
+  - Echte Hardware-Auflösung von 240 × 135 Pixeln mit RGB565-Farbraum.
+  - **Nearest-Neighbor GPU-Texturierung:** Absolut scharfe Pixel-Optik ohne verwaschene Filter.
+  - **Zoomed Display Only Modus:** Großansicht des reinen Displays mit ganzzahligem Skalierungsfaktor (Integer Scaling).
+- ⌨️ **Vollständige 56-Tasten-Tastatur:**
+  - Exakte 4×14 Tastenmatrix inklusive Primary-, Shift/Aa- und Fn-Ebenen.
+  - Klickbare Buttons mit Tastendruck-Hervorhebung.
+  - Physisches Host-Tastatur-Mapping (QWERTZ & QWERTY, Pfeiltasten, Sonderzeichen).
+  - **Focus-Loss-Safety:** Schutz vor hängenden Tasten bei Fensterfokus-Wechsel.
+- 💾 **MicroSD-Speicherkarte mit Sandbox:**
+  - Abbildung auf ein konfigurierbares Host-Verzeichnis.
+  - Zuverlässiger Schutz vor Directory-Traversal-Angriffen (`../` oder Ausbrüche blockiert).
+- 🛠️ **Integriertes Entwickler-Panel:**
+  - Simulation pausieren & fortsetzen.
+  - Firmware- und HAL-Reset.
+  - Live-Anzeige gedrückter Tasten & Modifier (`Fn`, `Shift`, `Ctrl`, `Opt`, `Alt`).
+  - Native Ordnerauswahl für die virtuelle SD-Karte via Dateidialog.
+  - Umschaltung zwischen **Original Cardputer** (GPIO-Matrix) und **Cardputer ADV** (TCA8418 I²C-Controller).
 
 ---
 
 ## 2. Hardware-Status: Unterstützt vs. Ausstehend
 
 | Hardware-Komponente | Status | Implementierungsdetails |
-| :--- | :--- | :--- |
-| **ST7789V2 Display (240×135)** |  **Vollständig** | RGB565 Framebuffer, Primitiven, Font, GPU Nearest-Neighbor |
-| **56-Tasten-Tastatur** |  **Vollständig** | 4×14 Matrix, Host-Keyboard-Mapping, Klickflächen, Modifier |
-| **G0-Taster (BtnG0)** |  **Vollständig** | Klickbar, Download/Action-Button der Firmware |
-| **MicroSD-Slot** |  **Vollständig** | Lokaler Sandboxed Ordner, Traversal-Protection |
-| **System-Uhr & Timer** |  **Vollständig** | Monotone `millis()`, `micros()`, Frame-Delta `dt` |
-| **Akku / Power-Status** |  **Simuliert** | Spannung (mV), Prozentwert, Ladeerkennung |
-| **NS4168 1W Lautsprecher** |  **Vorbereitet** | HAL-Audio-Stubs vorhanden, DSP/Beep-Erweiterung möglich |
-| **SPM1423 PDM Mikrofon** |  **Vorbereitet** | Virtuelle Audiopuffer-Schnittstelle vorbereitet |
+| :--- | :---: | :--- |
+| **ST7789V2 Display (240×135)** | ✅ **Vollständig** | RGB565 Framebuffer, Primitiven, Font, GPU Nearest-Neighbor |
+| **56-Tasten-Tastatur** | ✅ **Vollständig** | 4×14 Matrix, Host-Keyboard-Mapping, Klickflächen, Modifier |
+| **G0-Taster (BtnG0)** | ✅ **Vollständig** | Klickbar, Download/Action-Button der Firmware |
+| **MicroSD-Slot** | ✅ **Vollständig** | Lokaler Sandboxed Ordner, Traversal-Protection |
+| **System-Uhr & Timer** | ✅ **Vollständig** | Monotone `millis()`, `micros()`, Frame-Delta `dt` |
+| **Akku / Power-Status** | ✅ **Simuliert** | Spannung (mV), Prozentwert, Ladeerkennung |
+| **NS4168 1W Lautsprecher** | ⚠️ **Vorbereitet** | HAL-Audio-Stubs vorhanden, DSP/Tone-Erweiterung möglich |
+| **SPM1423 PDM Mikrofon** | ⚠️ **Vorbereitet** | Virtuelle Audiopuffer-Schnittstelle vorbereitet |
 | **Wi-Fi / ESP-NOW / BLE** | ❌ **Nicht implementiert** | Wird im UI explizit als nicht unterstützt deklariert |
 | **Grove HY2.0-4P / GPIOs** | ❌ **Nicht implementiert** | Externe Hardware-Pins nicht simuliert |
 
 ---
 
-## 3. Lauffähige Beispielanwendung
+## 3. Schnellstart & Terminal-Alias
 
-Die mitgelieferte Firmware-Anwendung (`m5fxx-app-demo`) demonstriert alle Kernaspekte:
-1. **SplashScreen:** Animierter Startbildschirm mit Ladebalken und automatischer/tastenbasierter Weiterleitung
-2. **Hauptmenü:** Navigation über Cardputer-Tastatur (`Fn+;` für Up, `Fn+.` für Down, `Enter` zum Auswählen, oder Direkttasten `1`–`4`)
-3. **Text Editor:** Vollwertiger Texteditor mit blinkendem Cursor, Backspace, Zeilenumbruch und Zeichenzählung
-4. **Grafikanimation:** Physikbasierte, mehrfarbige Bouncing Balls und flüssiges Sternenfeld (60 FPS)
-5. **SD-Karten-Verwaltung:** Schreiben (`W`) und Lesen (`R`) einer Datei (`sample.txt`) auf der virtuellen SD-Karte
-6. **System- & Hardware-Info:** Modell-, Display-, Controller- und Akkustatus
-
----
-
-## 4. Schnellstart & Ausführung
-
-### Voraussetzungen
-- Rust 1.80+ (getestet mit Rust 1.98.0)
-- Cargo
-
-### Starten des Simulators
+### Starten über Terminal-Alias
+Wenn du den Alias `m5` in deiner Shell eingerichtet hast:
 ```bash
+m5
+```
+
+### Manueller Start über Cargo
+```bash
+# Debug-Build
+cargo run -p m5fxx-desktop
+
+# Optimierter Release-Build
 cargo run --release -p m5fxx-desktop
 ```
 
-### Ausführen der Tests
+---
+
+## 4. Architektur & Firmware-Integration
+
+Das Projekt ist modular als **Cargo-Workspace** aufgebaut:
+
+```text
+m5fxx/
+├── assets/                  # Hero Banner & Ressourcen
+├── crates/
+│   ├── m5fxx-core/          # Hardware Abstraction Layer, RGB565, Input & SD Sandbox
+│   ├── m5fxx-app-demo/      # Hardware-agnostische Beispielanwendung (Firmware)
+│   └── m5fxx-desktop/       # eframe/egui GUI Desktop-Simulator
+├── include/
+│   └── m5fxx_abi.h          # C-ABI Header für native C/C++ Firmware-Integration
+├── Cargo.toml               # Workspace Konfiguration
+└── README.md
+```
+
+### Integration eigener Firmware
+
+#### A. Firmware in Rust
+Nutze `m5fxx-core` als gemeinsame Abhängigkeit:
+```toml
+[dependencies]
+m5fxx-core = { git = "https://github.com/pepperonas/m5fxx" }
+```
+Deine Firmware implementiert ihre Logik gegen `CardputerHal`. Auf dem Desktop läuft sie im Simulator, auf der echten Hardware mit `esp-hal` oder `esp-idf-hal`.
+
+#### B. Firmware in C oder C++
+Für bestehende Arduino- oder ESP-IDF-Codebasen liegt der schlanke C-Header [`include/m5fxx_abi.h`](include/m5fxx_abi.h) bereit:
+1. Kompiliere deine hardware-unabhängigen Firmware-Module (Menüs, Logik) als native Library.
+2. Verbinde den Framebuffer (`get_framebuffer()`) und Key-Events (`m5fxx_key_event_t`) über die definierte C-ABI.
+3. Kein Nachprogrammieren riesiger Arduino-Bibliotheken erforderlich.
+
+---
+
+## 5. Plattform-Support & Builds
+
+| Betriebssystem | Architektur | Status | Build-Kommando |
+| :--- | :--- | :---: | :--- |
+| **macOS** | Apple Silicon (M1–M4) | ✅ Verifiziert | `cargo build --release -p m5fxx-desktop` |
+| **macOS** | Intel x86_64 | ✅ Verifiziert | `cargo build --release -p m5fxx-desktop` |
+| **Linux** | Ubuntu, Debian, Fedora, Arch | 🐧 Quellcode-kompatibel | `cargo build --release -p m5fxx-desktop` |
+| **Windows** | x86_64 MSVC | 🪟 Quellcode-kompatibel | `cargo build --release -p m5fxx-desktop` |
+
+### Linux Abhängigkeiten (Ubuntu/Debian)
 ```bash
+sudo apt-get update
+sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
+```
+
+---
+
+## 6. Tests & Code-Qualität
+
+```bash
+# Alle Workspace-Tests ausführen
 cargo test --workspace
-```
 
-### Codeformatierung & Lints
-```bash
-cargo fmt --all -- --check
+# Linter & Formatierung
 cargo clippy --workspace -- -D warnings
+cargo fmt --all -- --check
 ```
 
 ---
 
-## 5. Plattform-Support & Build-Anweisungen
+## Lizenz
 
-### macOS (Apple Silicon & Intel)
-- **Status:** **Verifiziert** (Getestet auf Apple Silicon macOS)
-- **Build:**
-  ```bash
-  cargo build --release -p m5fxx-desktop
-  ```
-
-### Linux (Ubuntu, Debian, Fedora, Arch)
-- **Status:** **Quellcode-kompatibel** (nutzt Standard-winit/egui über Wayland/X11)
-- **Benötigte Pakete (Ubuntu/Debian):**
-  ```bash
-  sudo apt-get update
-  sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
-  ```
-- **Build:**
-  ```bash
-  cargo build --release -p m5fxx-desktop
-  ```
-
-### Windows (x86_64)
-- **Status:** **Quellcode-kompatibel** (reine Rust-Standardbibliothek und native Windows-APIs)
-- **Voraussetzung:** Visual Studio C++ Build Tools & Rust `x86_64-pc-windows-msvc`
-- **Build:**
-  ```powershell
-  cargo build --release -p m5fxx-desktop
-  ```
-
----
-
-## 6. Integration eigener Firmware
-
-### Fall A: Firmware in Rust
-Wenn Ihre Firmware bereits in Rust geschrieben ist oder als Rust-Projekt aufgebaut wird:
-1. Erstellen Sie eine Crate, die `m5fxx-core` als Abhängigkeit einbindet.
-2. Nutzen Sie `CardputerHal` für Display- und Eingabezugriffe.
-3. Auf dem Desktop übergeben Sie die Instanz an den Simulator (`m5fxx-desktop`).
-4. Auf der echten Hardware implementieren Sie denselben Trait mit `esp-idf-hal` oder `esp-hal`.
-
-### Fall B: Firmware in C oder C++
-Wenn Ihre Firmware in C oder C++ (z. B. Arduino/ESP-IDF) vorliegt:
-1. Nutzen Sie die schmale C-ABI-Headerdatei [`include/m5fxx_abi.h`](include/m5fxx_abi.h).
-2. Kompilieren Sie Ihre firmware-eigene Geschäftslogik (Menüs, Parser, Grafiken) als statische Bibliothek (`.a`) für den Host.
-3. Die Schnittstelle übergibt den Zeiger auf den 240×135 Framebuffer (`get_framebuffer()`) und empfängt Tastatur-Events (`m5fxx_key_event_t`).
-4. Auf diese Weise bleibt Ihre bestehende C++-Firmware erhalten, ohne unvollständige Nachbauten komplexer Arduino-Libraries zu erfordern.
+Dieses Projekt steht unter der [MIT-Lizenz](LICENSE).
