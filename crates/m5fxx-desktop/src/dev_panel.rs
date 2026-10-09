@@ -13,6 +13,7 @@ pub struct DevPanelState {
     pub fps: f32,
     pub frame_counter: u32,
     pub last_fps_time: std::time::Instant,
+    pub installed_firmwares: Vec<String>,
 }
 
 impl Default for DevPanelState {
@@ -23,6 +24,7 @@ impl Default for DevPanelState {
             fps: 60.0,
             frame_counter: 0,
             last_fps_time: std::time::Instant::now(),
+            installed_firmwares: Vec::new(),
         }
     }
 }
@@ -203,6 +205,40 @@ pub fn render_dev_panel(
                 }
             } else {
                 ui.label(RichText::new("SD card not mounted").color(Color32::RED));
+            }
+        });
+
+    ui.separator();
+
+    // 4. Drag & Drop Firmware Installer
+    CollapsingHeader::new("Firmware Flasher & Drag-and-Drop")
+        .default_open(true)
+        .show(ui, |ui| {
+            ui.label("Drop any .bin / .hex firmware file anywhere onto the simulator window to flash it.");
+            ui.add_space(4.0);
+
+            if ui.button("📂 Select Firmware File (.bin)...").clicked() {
+                if let Some(file_path) = rfd::FileDialog::new()
+                    .add_filter("Firmware Binaries", &["bin", "hex", "elf"])
+                    .pick_file()
+                {
+                    let name = file_path
+                        .file_name()
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_else(|| "firmware.bin".to_string());
+                    let size = std::fs::metadata(&file_path).map(|m| m.len() as usize).unwrap_or(0);
+                    hal.log(format!("Selected firmware file: {} ({} bytes)", name, size));
+                    dev_state.installed_firmwares.push(name.clone());
+                    app.trigger_firmware_flash(name, size);
+                }
+            }
+
+            if !dev_state.installed_firmwares.is_empty() {
+                ui.add_space(4.0);
+                ui.label("Recently installed firmwares:");
+                for fw in &dev_state.installed_firmwares {
+                    ui.label(RichText::new(format!("• {}", fw)).small().color(Color32::LIGHT_BLUE));
+                }
             }
         });
 

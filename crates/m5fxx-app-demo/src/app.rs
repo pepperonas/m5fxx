@@ -18,6 +18,7 @@ pub enum AppScreen {
     GraphicsDemo,
     SdStorage,
     SysInfo,
+    FirmwareFlashing,
 }
 
 pub struct DemoApp {
@@ -30,6 +31,12 @@ pub struct DemoApp {
     pub sd_file_content: String,
     pub balls: Vec<BouncingBall>,
     pub stars: Vec<Star>,
+    // Flashing simulation state
+    pub flash_file_name: String,
+    pub flash_file_size: usize,
+    pub flash_progress: f32,
+    pub flash_status: String,
+    pub flash_timer: f32,
 }
 
 pub struct BouncingBall {
@@ -127,7 +134,22 @@ impl DemoApp {
             sd_file_content: String::new(),
             balls,
             stars,
+            flash_file_name: String::new(),
+            flash_file_size: 0,
+            flash_progress: 0.0,
+            flash_status: String::new(),
+            flash_timer: 0.0,
         }
+    }
+
+    /// Triggers firmware installation from a dropped file
+    pub fn trigger_firmware_flash(&mut self, file_name: String, file_size: usize) {
+        self.screen = AppScreen::FirmwareFlashing;
+        self.flash_file_name = file_name;
+        self.flash_file_size = file_size;
+        self.flash_progress = 0.0;
+        self.flash_timer = 0.0;
+        self.flash_status = "Verifying binary format...".to_string();
     }
 
     /// Reset app state
@@ -308,6 +330,40 @@ impl DemoApp {
                     }
                 }
             }
+            AppScreen::FirmwareFlashing => {
+                self.flash_timer += dt;
+                if self.flash_timer < 0.8 {
+                    self.flash_progress = (self.flash_timer / 0.8) * 0.15;
+                    self.flash_status = "Verifying binary header...".to_string();
+                } else if self.flash_timer < 2.5 {
+                    let progress = 0.15 + ((self.flash_timer - 0.8) / 1.7) * 0.70;
+                    self.flash_progress = progress;
+                    self.flash_status = format!("Writing Flash: {:.0}%", progress * 100.0);
+                } else if self.flash_timer < 3.2 {
+                    self.flash_progress = 0.95;
+                    self.flash_status = "Verifying checksum (MD5)...".to_string();
+                } else if self.flash_timer < 4.2 {
+                    self.flash_progress = 1.0;
+                    self.flash_status = "Flash complete! Rebooting...".to_string();
+                } else {
+                    // Reboot back to menu
+                    self.screen = AppScreen::Menu;
+                    hal.log(format!(
+                        "Firmware '{}' installed & rebooted",
+                        self.flash_file_name
+                    ));
+                    return;
+                }
+
+                // Allow cancel via Esc
+                for key in &keys {
+                    if *key == CardputerKey::Esc {
+                        self.screen = AppScreen::Menu;
+                        hal.log("Flashing cancelled by user");
+                        return;
+                    }
+                }
+            }
         }
 
         // Draw current screen to HAL display buffer
@@ -323,6 +379,7 @@ impl DemoApp {
             AppScreen::GraphicsDemo => self.render_graphics(hal),
             AppScreen::SdStorage => self.render_sd(hal),
             AppScreen::SysInfo => self.render_sysinfo(hal),
+            AppScreen::FirmwareFlashing => self.render_flashing(hal),
         }
     }
 
@@ -600,6 +657,86 @@ impl DemoApp {
             114,
             "Mic: SPM1423 (Simulated)",
             Color565::DARKCYAN,
+            None,
+            1,
+        );
+    }
+
+    fn render_flashing(&self, hal: &mut CardputerHal) {
+        hal.display.clear(Color565::BLACK);
+        Self::draw_header(hal, "Firmware Flasher");
+
+        // Flashing icon / header
+        hal.display
+            .draw_string(8, 18, "INSTALLING FIRMWARE...", Color565::YELLOW, None, 1);
+
+        // Binary filename & size
+        let info = format!(
+            "File: {}",
+            if self.flash_file_name.len() > 24 {
+                &self.flash_file_name[..24]
+            } else {
+                &self.flash_file_name
+            }
+        );
+        hal.display
+            .draw_string(8, 32, &info, Color565::WHITE, None, 1);
+
+        let size_kb = (self.flash_file_size as f32) / 1024.0;
+        let size_str = format!("Size: {:.1} KB", size_kb);
+        hal.display
+            .draw_string(8, 44, &size_str, Color565::LIGHTGREY, None, 1);
+
+        // Status text
+        hal.display
+            .draw_string(8, 60, &self.flash_status, Color565::CYAN, None, 1);
+
+        // Progress bar background & fill
+        let bar_x = 8;
+        let bar_y = 76;
+        let bar_w = (DISPLAY_WIDTH as i32) - 16;
+        let bar_h = 14;
+
+        hal.display
+            .draw_rect(bar_x, bar_y, bar_w, bar_h, Color565::WHITE);
+        hal.display
+            .fill_rect(bar_x + 1, bar_y + 1, bar_w - 2, bar_h - 2, Color565::NAVY);
+
+        let fill_w = (((bar_w - 2) as f32) * self.flash_progress.clamp(0.0, 1.0)) as i32;
+        if fill_w > 0 {
+            let bar_color = if self.flash_progress >= 1.0 {
+                Color565::GREEN
+            } else {
+                Color565::from_rgb888(0xFA, 0x6A, 0x00) // Cardputer signature orange
+            };
+            hal.display
+                .fill_rect(bar_x + 1, bar_y + 1, fill_w, bar_h - 2, bar_color);
+        }
+
+        // Percentage text centered
+        let pct_text = format!("{:.0}%", (self.flash_progress * 100.0).clamp(0.0, 100.0));
+        let pct_x = bar_x + (bar_w / 2) - ((pct_text.len() as i32 * 6) / 2);
+        hal.display
+            .draw_string(pct_x, bar_y + 3, &pct_text, Color565::WHITE, None, 1);
+
+        // Target chip & memory info
+        hal.display.draw_string(
+            8,
+            96,
+            "Target: ESP32-S3 Flash @ 0x10000",
+            Color565::DARKGREY,
+            None,
+            1,
+        );
+
+        // Footer instructions
+        hal.display
+            .draw_line(0, 122, DISPLAY_WIDTH as i32, 122, Color565::DARKGREY);
+        hal.display.draw_string(
+            4,
+            125,
+            "Do not disconnect power! [Esc]=Cancel",
+            Color565::RED,
             None,
             1,
         );

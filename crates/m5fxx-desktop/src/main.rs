@@ -167,6 +167,37 @@ impl CardputerSimulatorApp {
                 _ => {}
             }
         }
+
+        // Process Drag and Drop dropped files (e.g. .bin, .hex firmware images)
+        let dropped_files = ctx.input(|i| i.raw.dropped_files.clone());
+        for file in dropped_files {
+            let file_name = if !file.name.is_empty() {
+                file.name.clone()
+            } else if let Some(path) = &file.path {
+                path.file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "firmware.bin".to_string())
+            } else {
+                "firmware.bin".to_string()
+            };
+
+            let file_size = if let Some(bytes) = &file.bytes {
+                bytes.len()
+            } else if let Some(path) = &file.path {
+                std::fs::metadata(path)
+                    .map(|m| m.len() as usize)
+                    .unwrap_or(0)
+            } else {
+                0
+            };
+
+            self.hal.log(format!(
+                "Drag & Drop: Received '{}' ({} bytes)",
+                file_name, file_size
+            ));
+            self.dev_state.installed_firmwares.push(file_name.clone());
+            self.app.trigger_firmware_flash(file_name, file_size);
+        }
     }
 
     /// Uploads the current DisplayBuffer to egui GPU texture using Nearest-Neighbor filtering
@@ -320,6 +351,39 @@ impl eframe::App for CardputerSimulatorApp {
                     &mut self.hal,
                     texture_id,
                     &mut self.active_mouse_key,
+                );
+            }
+
+            // Visual feedback when hovering a dragged file over the simulator window
+            let hovered_files = ctx.input(|i| i.raw.hovered_files.clone());
+            if !hovered_files.is_empty() {
+                let painter = ui.painter();
+                painter.rect_filled(
+                    available_rect,
+                    0.0,
+                    Color32::from_rgba_unmultiplied(0x10, 0x14, 0x20, 200),
+                );
+                painter.rect_stroke(
+                    available_rect.shrink(16.0),
+                    8.0,
+                    egui::Stroke::new(3.0_f32, Color32::from_rgb(0xFA, 0x6A, 0x00)),
+                    egui::StrokeKind::Inside,
+                );
+
+                let first_file = hovered_files
+                    .first()
+                    .and_then(|f| f.path.as_ref())
+                    .and_then(|p| p.file_name())
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "firmware.bin".to_string());
+
+                let text = format!("⚡ Drop '{}' to Flash Firmware", first_file);
+                painter.text(
+                    available_rect.center(),
+                    egui::Align2::CENTER_CENTER,
+                    text,
+                    egui::FontId::monospace(22.0),
+                    Color32::WHITE,
                 );
             }
         });

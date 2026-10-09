@@ -44,6 +44,11 @@
 - 💾 **MicroSD-Speicherkarte mit Sandbox:**
   - Abbildung auf ein konfigurierbares Host-Verzeichnis.
   - Zuverlässiger Schutz vor Directory-Traversal-Angriffen (`../` oder Ausbrüche blockiert).
+- ⚡ **Drag & Drop Firmware Installation:**
+  - Ziehe beliebige Firmware-Dateien (`.bin`, `.hex`, `.elf`) direkt per Drag-and-Drop auf das Simulatorfenster.
+  - Automatische visuelle Drop-Overlay-Anzeige (`⚡ Drop to Flash Firmware`).
+  - Animierte ESP32-S3 Flash-Simulation im Display mit Fortschrittsbalken, Größenprüfung, Prüfsummen-Verifikation und automatischem Soft-Reboot ins System.
+  - Alternativ auch manuelle Dateiauswahl über den Button im Developer Panel.
 - 🛠️ **Integriertes Entwickler-Panel:**
   - Simulation pausieren & fortsetzen.
   - Firmware- und HAL-Reset.
