@@ -57,7 +57,22 @@
   - Native Ordnerauswahl für die virtuelle SD-Karte via Dateidialog.
   - Umschaltung zwischen **Original Cardputer** (GPIO-Matrix) und **Cardputer ADV** (TCA8418 I²C-Controller).
 
-### Bruce Firmware Live-Ausführung (ESP32-S3 QEMU)
+### Firmware-Ansichten im Simulator
+
+#### 1. M5Stack Stock-/Werksfirmware Boot & Launcher (ADV Factory)
+
+Der Simulator startet die originale M5Stack Cardputer ADV Werksfirmware nativ in C++/M5GFX mit M5Stack-Bootlogo und Mooncake-Launcher:
+
+<div align="center">
+  <img src="./assets/emulator-stock-boot.png" alt="m5fxx Simulator mit bootender M5Stack Stock Firmware" width="85%">
+</div>
+
+| Stock Boot-Screen (`boot.png`) | Mooncake Launcher (`launcher.png`) |
+| :---: | :---: |
+| <img src="./assets/stock-boot.png" alt="M5Stack Stock Boot Screen" width="260"> | <img src="./assets/stock-launcher.png" alt="M5Stack Stock Launcher Screen" width="260"> |
+| *M5Stack Logo & Firmware V0.3* | *App-Launcher mit Statusleiste & Modifiern* |
+
+#### 2. Bruce Firmware Live-Ausführung (ESP32-S3 QEMU)
 
 Der Emulator führt echten ESP32-S3-Maschinencode (z. B. Bruce 1.8) über das integrierte QEMU-Modell aus und leitet die SPI-Daten direkt an das emulierte ST7789-IPS-Display weiter:
 
