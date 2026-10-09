@@ -7,3 +7,12 @@ members = [
     "crates/m5fxx-desktop",
 ]
 resolver = "2"
+
+[workspace.package]
+version = "0.2.0"
+edition = "2021"
+authors = ["Martin <pepperonas>"]
+license = "MIT"
+repository = "https://github.com/pepperonas/m5fxx"
+homepage = "https://github.com/pepperonas/m5fxx"
+readme = "README.md"

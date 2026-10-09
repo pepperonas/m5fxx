@@ -1,6 +1,6 @@
 [package]
 name = "m5fxx-desktop"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Cross-platform M5Stack Cardputer desktop simulator in Rust using eframe/egui"
 

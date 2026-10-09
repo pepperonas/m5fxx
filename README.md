@@ -4,6 +4,7 @@
 
 # m5fxx — M5Stack Cardputer Desktop Simulator
 
+[![Version: 0.2.0](https://img.shields.io/badge/Version-0.2.0-blue.svg?style=for-the-badge&logo=semver)](CHANGELOG.md)
 [![Rust](https://img.shields.io/badge/Rust-1.80+-orange.svg?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20|%20Linux%20|%20Windows-blue.svg?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/pepperonas/m5fxx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
@@ -14,7 +15,7 @@
 
 *Ein hochperformanter, plattformübergreifender Desktop-Simulator für M5Stack-Cardputer-Firmware mit nativer Benutzeroberfläche in Rust (`eframe`/`egui`).*
 
-[Features](#1-features--highlights) • [Hardware-Status](#2-hardware-status-unterstützt-vs-ausstehend) • [Schnellstart](#3-schnellstart--terminal-alias) • [Architektur](#4-architektur--firmware-integration) • [Plattformen](#5-plattform-support--builds)
+[Features](#1-features--highlights) • [Hardware-Status](#2-hardware-status-unterstützt-vs-ausstehend) • [Schnellstart](#3-schnellstart--terminal-alias) • [Architektur](#4-architektur--firmware-integration) • [Changelog](CHANGELOG.md) • [Plattformen](#5-plattform-support--builds)
 
 </div>
 
